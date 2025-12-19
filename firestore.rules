@@ -15,7 +15,8 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.owner;
     }
 
-    // Deny everything else by default
-    match /{document=**} { allow read, write: if false; }
+    // TEMP - Allow everything else by default
+    match /{document=**} { allow read, write: if true; }
   }
+  
 }
