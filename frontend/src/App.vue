@@ -1,32 +1,53 @@
 <script setup>
-import { auth } from "./firebase.js";
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { ref, onMounted } from "vue";
-import { addCollectiveMember, getAllCollectiveMembers, getCollectiveMemberById, updateCollectiveMember, deleteCollectiveMember } from "@/servicies/firestoreService.js";
+import { auth } from "@/firebase";
+import {
+  signInWithPopup,
+  signOut,
+  GoogleAuthProvider,
+  onAuthStateChanged
+} from "firebase/auth";
 
+import {
+  // CollectiveMembers
+  addCollectiveMember,
+  getAllCollectiveMembers,
+  getCollectiveMemberById,
+  updateCollectiveMember,
+  deleteCollectiveMember,
+
+  // RegisteredMembers
+  addRegisteredMember,
+  getAllRegisteredMembers,
+  getRegisteredMemberById,
+  getRegisteredMembersByCollectiveId,
+  updateRegisteredMember,
+  deleteRegisteredMember
+
+} from "@/servicies/firestoreService.js";
+
+
+// ---------------------
+// AUTH
+// ---------------------
 const user = ref(null);
 
 onMounted(() => {
   onAuthStateChanged(auth, async (u) => {
     if (u) {
-      // Store the user in your reactive state
       user.value = {
         uid: u.uid,
         displayName: u.displayName
       };
 
-      // Fetch the current ID token
       const token = await u.getIdToken();
 
-      // Log helpful info
       console.log("Signed in");
       console.log("User ID:", u.uid);
       console.log("Display Name:", u.displayName);
       console.log("ID Token:", token);
     } else {
-      // Clear state if signed out
       user.value = null;
-
       console.log("Signed out");
     }
   });
@@ -35,98 +56,132 @@ onMounted(() => {
 const login = () => signInWithPopup(auth, new GoogleAuthProvider());
 const logout = () => signOut(auth);
 
-const data = {
-  name: "Example Name",
-  ICO: "12345678",
-  contact_person: {
-    first_name: "John",
-    last_name: "Doe",
-    email: "john.doe@example.com",
-    phone_number: "+420123456789"
-  },
-  address: {
-    township: "Prague 1",
-    postal_number: "11000",
-    street_and_desc_number: "Main St 15"
-  },
-  origin_date: "2023-01-01",
-  extinction_date: null
+
+// ---------------------
+// TEST STATE
+// ---------------------
+const collectiveId = ref("");
+const registeredId = ref("");
+const collectiveList = ref([]);
+const registeredList = ref([]);
+
+
+// ---------------------
+// Collective CRUD
+// ---------------------
+
+const createCollective = async () => {
+  const id = await addCollectiveMember({
+    name: "Test Collective",
+    createdAt: new Date()
+  });
+  collectiveId.value = id;
+  console.log("Created Collective:", id);
 };
 
-function post() {
-  if (user.value) {
-    addCollectiveMember(data);
-  } else {
-    console.log("User not signed in");
-  }
-}
+const loadCollectives = async () => {
+  collectiveList.value = await getAllCollectiveMembers();
+  console.log(collectiveList.value);
+};
 
-const docsData = ref(null);
-async function getAll() {
-  if (user.value) {
-    docsData.value = await getAllCollectiveMembers();
-  }
-  else {
-    console.log("User not signed in");
-  }
-}
+const loadCollectiveById = async () => {
+  const result = await getCollectiveMemberById(collectiveId.value);
+  console.log(result);
+};
 
-const docIdGet = ref("");
-const docByIdData = ref(null);
-async function getById() {
-  if (user.value) {
-    docByIdData.value = await getCollectiveMemberById(docId.value);
-  }
-  else {
-    console.log("User not signed in");
-  }
-}
+const updateCollective = async () => {
+  await updateCollectiveMember(collectiveId.value, {
+    name: "Updated Collective"
+  });
+  console.log("Collective updated");
+};
 
-const docIdUpdate = ref("");
-async function update() {
-  await updateCollectiveMember(docIdUpdate.value, { name: "zesraty potkan" });
-}
+const removeCollective = async () => {
+  await deleteCollectiveMember(collectiveId.value);
+  console.log("Collective deleted");
+};
 
-const docIdDelete = ref("");
-async function deleteDocument() {
-  await deleteCollectiveMember(docIdDelete.value);
-}
+
+// ---------------------
+// Registered CRUD
+// ---------------------
+
+const createRegistered = async () => {
+  const id = await addRegisteredMember({
+    name: "Test Person",
+    role: "Tester",
+    collectiveMemberId: collectiveId.value
+  });
+  registeredId.value = id;
+  console.log("Created Registered Member:", id);
+};
+
+const loadRegistered = async () => {
+  registeredList.value = await getAllRegisteredMembers();
+  console.log(registeredList.value);
+};
+
+const loadRegisteredById = async () => {
+  const result = await getRegisteredMemberById(registeredId.value);
+  console.log(result);
+};
+
+const loadByCollective = async () => {
+  const result = await getRegisteredMembersByCollectiveId(collectiveId.value);
+  console.log(result);
+};
+
+const updateRegistered = async () => {
+  await updateRegisteredMember(registeredId.value, {
+    role: "Updated Role"
+  });
+  console.log("Registered Member updated");
+};
+
+const removeRegistered = async () => {
+  await deleteRegisteredMember(registeredId.value);
+  console.log("Registered Member deleted");
+};
+
 </script>
 
 <template>
   <div>
-    <button v-if="!user" @click="login">Sign in with Google</button>
+    <h1>Firestore CRUD Test</h1>
+
+    <div v-if="!user">
+      <button @click="login">Login with Google</button>
+    </div>
+
     <div v-else>
-      <span>Hi, {{ user.displayName || user.uid }}</span>
-      <button @click="logout">Sign out</button>
-    </div>
-    <button @click="post">
-      post
-    </button>
-    <button @click="getAll">
-      getAll
-    </button>
-    <div>
-      <h1>GET ALL</h1>
-      {{ docsData }}
-    </div>
-    <div>
-      <h1>GET BY ID</h1>
-      <input v-model="docIdGet" placeholder="Enter document ID" />
-      <button @click="getById">getById</button>
-      <div>
-      {{ docByIdData }}
-      </div>
-    </div>
-    <div>
-      <h1>UPDATE</h1>
-      <input v-model="docIdUpdate" placeholder="Enter document ID" />
-      <button @click="update">update</button>
-    </div>
-    <div>
-      <h1>DELETE</h1>
-      <input v-model="docIdDelete" placeholder="Enter document ID" />
-      <button @click="deleteDocument">delete</button>
+      <p>Logged in as: {{ user.displayName }}</p>
+      <button @click="logout">Logout</button>
+
+      <hr />
+
+      <h2>CollectiveMembers</h2>
+
+      <button @click="createCollective">Create Collective</button>
+      <button @click="loadCollectives">Get All Collectives</button>
+      <button @click="loadCollectiveById">Get Collective By ID</button>
+      <button @click="updateCollective">Update Collective</button>
+      <button @click="removeCollective">Delete Collective</button>
+
+      <p>Current Collective ID: {{ collectiveId }}</p>
+
+      <hr />
+
+      <h2>RegisteredMembers</h2>
+
+      <button @click="createRegistered">Create Registered Member</button>
+      <button @click="loadRegistered">Get All Registered</button>
+      <button @click="loadRegisteredById">Get Registered By ID</button>
+      <button @click="loadByCollective">Get By Collective ID</button>
+      <button @click="updateRegistered">Update Registered</button>
+      <button @click="removeRegistered">Delete Registered</button>
+
+      <p>Current Registered ID: {{ registeredId }}</p>
+
     </div>
   </div>
 </template>
