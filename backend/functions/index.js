@@ -26,7 +26,7 @@ app.post("/terminate-collective-membership",validateRole(['admin', 'editor']), a
     const { collectiveId, action, targetCollectiveId } = req.body;
 
     // Basic Validation
-    if (!collectiveId || !action) {
+    if (!collectiveId || !action || (action === "transfer" && !targetCollectiveId)) {
       return res.status(400).send({ error: "Missing required fields." });
     }
 
@@ -52,14 +52,13 @@ app.post("/terminate-collective-membership",validateRole(['admin', 'editor']), a
       athletesQuery.forEach((doc) => {
         const athleteRef = doc.ref;
         
-        if (action === "transfer" && targetCollectiveId) {
+        if (action === "transfer") {
           batch.update(athleteRef, { 
             collective_member_ref: targetCollectiveId,
             modifiedAt: now,
             modifiedBy: userEmail
           });
         } else {
-          // Default to nullify
           batch.update(athleteRef, { 
             collective_member_ref: null,
             modifiedAt: now,
