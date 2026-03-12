@@ -24,7 +24,8 @@ import {
   updateRegisteredMember,
   deleteRegisteredMember
 
-} from "@/servicies/firestoreService.js";
+} from "@/services/firestoreService.js";
+import AdminPanel from "@/components/AdminPanel.vue";
 
 
 // ---------------------
@@ -37,7 +38,8 @@ onMounted(() => {
     if (u) {
       user.value = {
         uid: u.uid,
-        displayName: u.displayName
+        displayName: u.displayName,
+        email: u.email
       };
 
       const token = await u.getIdToken();
@@ -110,7 +112,7 @@ const createRegistered = async () => {
   const id = await addRegisteredMember({
     name: "Test Person",
     role: "Tester",
-    collectiveMemberId: collectiveId.value
+    collective_member_ref: collectiveId.value
   });
   registeredId.value = id;
   console.log("Created Registered Member:", id);
@@ -154,7 +156,7 @@ const removeRegistered = async () => {
     </div>
 
     <div v-else>
-      <p>Logged in as: {{ user.displayName }}</p>
+      <p>Logged in as: {{ user.displayName }}, {{ user.email }}</p>
       <button @click="logout">Logout</button>
 
       <hr />
@@ -181,6 +183,8 @@ const removeRegistered = async () => {
       <button @click="removeRegistered">Delete Registered</button>
 
       <p>Current Registered ID: {{ registeredId }}</p>
+
+      <admin-panel></admin-panel>
 
     </div>
   </div>

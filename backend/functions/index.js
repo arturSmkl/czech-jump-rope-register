@@ -1,46 +1,85 @@
-const { onRequest } = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const express = require("express");
 const cors = require("cors");
+const { onRequest } = require("firebase-functions/v2/https");
+const { validateRole } = require("./src/middleware/auth.js");
 
 admin.initializeApp();
-
+const db = admin.firestore();
 const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
 
-// Verify Firebase ID token from 'Authorization: Bearer <idToken>'
-async function verifyFirebaseIdToken(req, res, next) {
+// change for production to frontend URL
+app.use(cors({ origin: "http://localhost:5173" }));
+
+/**
+ * POST /terminate-collective-membership
+ * Body: { 
+ * collectiveId: "ID_OF_CLUB", 
+ * action: "nullify" | "transfer", 
+ * targetCollectiveId: "NEW_CLUB_ID" (only if action is transfer)
+ * }
+ */
+app.post("/terminate-collective-membership",validateRole(['admin', 'editor']), async (req, res) => {
   try {
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: "Missing bearer token" });
-    const decoded = await admin.auth().verifyIdToken(token);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    logger.error(err);
-    res.status(401).json({ error: "Unauthorized" });
+    const { collectiveId, action, targetCollectiveId } = req.body;
+
+    // Basic Validation
+    if (!collectiveId || !action) {
+      return res.status(400).send({ error: "Missing required fields." });
+    }
+
+    const batch = db.batch(); // We use a batch for atomicity 
+    const now = FieldValue.serverTimestamp();
+    const userEmail = req.user.email; 
+
+    // "Soft Delete" the Collective Member
+    const collectiveRef = db.collection("collective_members").doc(collectiveId);
+    batch.update(collectiveRef, {
+      membership_extinction_date: now,
+      modifiedAt: now,
+      modifiedBy: userEmail 
+    });
+
+    // Handle Registered Members (Athletes)
+    // Find all athletes belonging to this club
+    const athletesQuery = await db.collection("registered_members")
+      .where("collective_member_ref", "==", collectiveId)
+      .get();
+
+    if (!athletesQuery.empty) {
+      athletesQuery.forEach((doc) => {
+        const athleteRef = doc.ref;
+        
+        if (action === "transfer" && targetCollectiveId) {
+          batch.update(athleteRef, { 
+            collective_member_ref: targetCollectiveId,
+            modifiedAt: now,
+            modifiedBy: userEmail
+          });
+        } else {
+          // Default to nullify
+          batch.update(athleteRef, { 
+            collective_member_ref: null,
+            modifiedAt: now,
+            modifiedBy: userEmail
+          });
+        }
+      });
+    }
+
+    //  Commit all changes at once
+    await batch.commit();
+
+    return res.status(200).send({ 
+      message: `Successfully terminated ${collectiveId}. ${athletesQuery.size} athletes updated via ${action}.` 
+    });
+
+  } catch (error) {
+    console.error("TERMINATION_ERROR:", error);
+    return res.status(500).send({ error: error.message });
   }
-}
-
-app.get("/status", (_req, res) => res.json({ ok: true, ts: Date.now() }));
-
-app.get("/me", verifyFirebaseIdToken, (req, res) => {
-  res.json({ uid: req.user.uid });
 });
 
-// Example Firestore secured route
-const { getFirestore } = require("firebase-admin/firestore");
-const db = getFirestore();
-
-app.post("/items", verifyFirebaseIdToken, async (req, res) => {
-  const { name } = req.body || {};
-  if (!name) return res.status(400).json({ error: "name is required" });
-  const ref = await db.collection("items").add({ name, owner: req.user.uid, createdAt: Date.now() });
-  res.json({ id: ref.id });
-});
-
-// Export a single API endpoint under /api/*
-exports.api = onRequest({ region: "europe-west3" }, app);
+exports.api = onRequest({ region: "europe-west3" }, app)
