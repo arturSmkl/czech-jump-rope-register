@@ -26,6 +26,8 @@ import {
 
 } from "@/services/firestoreService.js";
 import AdminPanel from "@/components/AdminPanel.vue";
+import CsvImporterCollective from "@/components/CsvImporterCollective.vue";
+import CsvImporterRegistered from "@/components/CsvImporterRegistered.vue";
 
 
 // ---------------------
@@ -57,7 +59,6 @@ onMounted(() => {
 
 const login = () => signInWithPopup(auth, new GoogleAuthProvider());
 const logout = () => signOut(auth);
-
 
 // ---------------------
 // TEST STATE
@@ -185,6 +186,8 @@ const removeRegistered = async () => {
       <p>Current Registered ID: {{ registeredId }}</p>
 
       <admin-panel></admin-panel>
+      <csv-importer-collective></csv-importer-collective>
+      <csv-importer-registered></csv-importer-registered>
 
     </div>
   </div>

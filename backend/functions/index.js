@@ -1,10 +1,10 @@
-const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const express = require("express");
 const cors = require("cors");
 const { onRequest } = require("firebase-functions/v2/https");
 const { validateRole } = require("./src/middleware/auth.js");
+const { importCollectives, terminateCollective, transferRegisteredMembers } = require("./src/routes/collectives");
+const { importRegistered } = require("./src/routes/registered.js");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -12,73 +12,49 @@ const app = express();
 
 // change for production to frontend URL
 app.use(cors({ origin: "http://localhost:5173" }));
+app.use(express.json())
 
 /**
- * POST /terminate-collective-membership
  * Body: { 
- * collectiveId: "ID_OF_CLUB", 
- * action: "nullify" | "transfer", 
- * targetCollectiveId: "NEW_CLUB_ID" (only if action is transfer)
+ * collectiveId: "ID_OF_CLUB"
  * }
  */
-app.post("/terminate-collective-membership",validateRole(['admin', 'editor']), async (req, res) => {
-  try {
-    const { collectiveId, action, targetCollectiveId } = req.body;
+app.post("/collectives/terminate-collective",
+  validateRole(['admin', 'editor']),
+  (req, res) => terminateCollective(req, res, db)
+);
 
-    // Basic Validation
-    if (!collectiveId || !action || (action === "transfer" && !targetCollectiveId)) {
-      return res.status(400).send({ error: "Missing required fields." });
-    }
+/**
+ * Body: { 
+ * collectiveId: "ID_OF_CLUB"
+ * action: "nullify" | "nullify_and_terminate" | "transfer"
+ * targetCollectiveId: "ID_OF_TARGET_CLUB" (required if action is "transfer")
+ * }
+ */
+app.post("/collectives/transfer-registered-members",
+  validateRole(['admin', 'editor']),
+  (req, res) => transferRegisteredMembers(req, res, db)
+);
 
-    const batch = db.batch(); // We use a batch for atomicity 
-    const now = FieldValue.serverTimestamp();
-    const userEmail = req.user.email; 
+/**
+ * Body: { 
+ * data: [{}, {}, ...]
+ * }
+ */
+app.post("/collectives/import-collectives", 
+  validateRole(["admin", "editor"]), 
+  (req, res) => importCollectives(req, res, db)
+);
 
-    // "Soft Delete" the Collective Member
-    const collectiveRef = db.collection("collective_members").doc(collectiveId);
-    batch.update(collectiveRef, {
-      membership_extinction_date: now,
-      modifiedAt: now,
-      modifiedBy: userEmail 
-    });
-
-    // Handle Registered Members (Athletes)
-    // Find all athletes belonging to this club
-    const athletesQuery = await db.collection("registered_members")
-      .where("collective_member_ref", "==", collectiveId)
-      .get();
-
-    if (!athletesQuery.empty) {
-      athletesQuery.forEach((doc) => {
-        const athleteRef = doc.ref;
-        
-        if (action === "transfer") {
-          batch.update(athleteRef, { 
-            collective_member_ref: targetCollectiveId,
-            modifiedAt: now,
-            modifiedBy: userEmail
-          });
-        } else {
-          batch.update(athleteRef, { 
-            collective_member_ref: null,
-            modifiedAt: now,
-            modifiedBy: userEmail
-          });
-        }
-      });
-    }
-
-    //  Commit all changes at once
-    await batch.commit();
-
-    return res.status(200).send({ 
-      message: `Successfully terminated ${collectiveId}. ${athletesQuery.size} athletes updated via ${action}.` 
-    });
-
-  } catch (error) {
-    console.error("TERMINATION_ERROR:", error);
-    return res.status(500).send({ error: error.message });
-  }
-});
+/**
+ * Body: { 
+ * data: [{}, {}, ...]
+ * collective_member_ref: "ID_OF_ASSOCIATED_CLUB" (optional, but if provided must be valid)
+ * }
+ */
+app.post("/registered/import-registered",
+  validateRole(["admin", "editor"]),
+  (req, res) => importRegistered(req, res, db)
+);
 
 exports.api = onRequest({ region: "europe-west3" }, app)

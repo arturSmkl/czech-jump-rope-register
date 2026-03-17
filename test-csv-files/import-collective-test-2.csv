@@ -1,0 +1,3 @@
+name,company_id,street_and_number,zip_code,township,contact_person_first_name,contact_person_last_name,contact_person_email,contact_person_phone_number,membership_origin_date,membership_extinction_date,id
+"bimbimbambam","12345678","Main St 12","10000","Prague","John","Doe","john.doe@spartans.com","+420123456789","15-1-2023","16-2-2024","uO6DkEfSMG7zUN05jWep"
+
