@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const { onRequest } = require("firebase-functions/v2/https");
 const { validateRole } = require("./src/middleware/auth.js");
-const { importCollectives, terminateCollective, transferRegisteredMembers } = require("./src/routes/collectives");
+const { importCollectives, exportCollectives, terminateCollective, deleteCollective, transferRegisteredMembers } = require("./src/routes/collectives");
 const { importRegistered } = require("./src/routes/registered.js");
 
 admin.initializeApp();
@@ -19,9 +19,19 @@ app.use(express.json())
  * collectiveId: "ID_OF_CLUB"
  * }
  */
-app.post("/collectives/terminate-collective",
+app.post("/collectives/terminate",
   validateRole(['admin', 'editor']),
   (req, res) => terminateCollective(req, res, db)
+);
+
+/**
+ * Body: { 
+ * collectiveId: "ID_OF_CLUB"
+ * }
+ */
+app.delete("/collectives/delete-",
+  validateRole(['admin', 'editor']),
+  (req, res) => deleteCollective(req, res, db)
 );
 
 /**
@@ -41,7 +51,7 @@ app.post("/collectives/transfer-registered-members",
  * data: [{}, {}, ...]
  * }
  */
-app.post("/collectives/import-collectives", 
+app.post("/collectives/import", 
   validateRole(["admin", "editor"]), 
   (req, res) => importCollectives(req, res, db)
 );
@@ -49,12 +59,17 @@ app.post("/collectives/import-collectives",
 /**
  * Body: { 
  * data: [{}, {}, ...]
- * collective_member_ref: "ID_OF_ASSOCIATED_CLUB" (optional, but if provided must be valid)
+ * collective_member_ref: "ID_OF_ASSOCIATED_CLUB" (optional)
  * }
  */
-app.post("/registered/import-registered",
+app.post("/registered/import",
   validateRole(["admin", "editor"]),
   (req, res) => importRegistered(req, res, db)
+);
+
+app.get("/collectives/export",
+  validateRole(["admin", "editor"]),
+  async (req, res) => exportCollectives(req, res, db)
 );
 
 exports.api = onRequest({ region: "europe-west3" }, app)

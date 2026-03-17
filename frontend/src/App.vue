@@ -25,6 +25,9 @@ import {
   deleteRegisteredMember
 
 } from "@/services/firestoreService.js";
+
+import { downloadExport } from "@/services/exportService.js";
+
 import AdminPanel from "@/components/AdminPanel.vue";
 import CsvImporterCollective from "@/components/CsvImporterCollective.vue";
 import CsvImporterRegistered from "@/components/CsvImporterRegistered.vue";
@@ -188,6 +191,9 @@ const removeRegistered = async () => {
       <admin-panel></admin-panel>
       <csv-importer-collective></csv-importer-collective>
       <csv-importer-registered></csv-importer-registered>
+      <div>
+        <button @click="downloadExport">Download Collective CSV</button>
+      </div>
 
     </div>
   </div>

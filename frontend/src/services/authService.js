@@ -18,7 +18,6 @@ export const upsertUser = async (email, role) => {
   const docRef = doc(db, COLLECTION_NAME, email.toLowerCase().trim());
   await setDoc(docRef, {
     role: role,
-    updatedAt: new Date()
   }, { merge: true });
 
   return docRef.id;

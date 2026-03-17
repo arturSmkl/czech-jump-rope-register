@@ -16,6 +16,18 @@ const parseDate = (dateStr) => {
   return isNaN(dateObj.getTime()) ? null : Timestamp.fromDate(dateObj);
 };
 
+// Firestore Timestamp to dd-mm-yyyy
+const formatFirestoreDate = (timestamp) => {
+  if (!timestamp || typeof timestamp.toDate !== 'function') return "";
+  
+  const date = timestamp.toDate();
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  return `${day}-${month}-${year}`;
+};
+
 const commitIfFull = async (batch, count, db) => {
   if (count > 0 && count % 499 === 0) {
     await batch.commit();
@@ -24,4 +36,15 @@ const commitIfFull = async (batch, count, db) => {
   return batch;
 };
 
-module.exports = { parseDate, commitIfFull };
+ // Prevents CSV injection by prefixing suspicious characters with a single quote
+const sanitizeForCsv = (val) => {
+  if (val === null || val === undefined) return "";
+  let str = String(val).replace(/"/g, '""'); // Escape existing quotes
+  
+  if (['=', '+', '-', '@'].includes(str.charAt(0))) {
+    return `'${str}`;
+  }
+  return str;
+};
+
+module.exports = { parseDate, formatFirestoreDate, commitIfFull, sanitizeForCsv };

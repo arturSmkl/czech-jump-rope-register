@@ -1,6 +1,6 @@
 import { getAuth } from "firebase/auth";
 
-const API_URL = "http://127.0.0.1:5001/czech-jump-rope-register-e8dea/europe-west3/api"; // e.g., https://europe-west3-project.cloudfunctions.net/api
+const API_URL = "http://127.0.0.1:5001/czech-jump-rope-register-e8dea/europe-west3/api";
 
 export const uploadCollectives = async (data) => {
   const auth = getAuth();
@@ -11,7 +11,7 @@ export const uploadCollectives = async (data) => {
   // Get the Bearer Token for the middleware
   const token = await user.getIdToken();
 
-  const response = await fetch(`${API_URL}/collectives/import-collectives`, {
+  const response = await fetch(`${API_URL}/collectives/import`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -35,7 +35,7 @@ export const uploadRegistered = async (data, collectiveId) => {
   // Get the Bearer Token for the middleware
   const token = await user.getIdToken();
 
-  const response = await fetch(`${API_URL}/registered/import-registered`, {
+  const response = await fetch(`${API_URL}/registered/import`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

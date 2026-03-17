@@ -1,5 +1,5 @@
 const { FieldValue } = require("firebase-admin/firestore");
-const { parseDate, commitIfFull } = require("../middleware/utils.js");
+const { parseDate, formatFirestoreDate, sanitizeForCsv, commitIfFull } = require("../middleware/utils.js");
 
 /**
  * Validates that the input data only contains the allowed keys.
@@ -107,68 +107,53 @@ const importCollectives = async (req, res, db) => {
   }
 };
 
-const terminateCollective = async (req, res, db) => {
+const exportCollectives = async (req, res, db) => {
   try {
-    const { collectiveId, terminationDate } = req.body;
-    const userEmail = req.user.email;
-    const dbNow = FieldValue.serverTimestamp();
-    const jsNow = new Date();
+    // Fetch all collectives
+    const snapshot = await db.collection("collective_members").get();
 
-    if (!collectiveId) return res.status(400).send({ error: "Missing collectiveId." });
+    const headers = [
+      "name", "company_id", "street_and_number", "zip_code", "township",
+      "contact_person_first_name", "contact_person_last_name", 
+      "contact_person_email", "contact_person_phone_number",
+      "membership_origin_date", "membership_extinction_date", "id"
+    ];
 
-    // Validate Source Collective
-    const collectiveRef = db.collection("collective_members").doc(collectiveId);
-    const collectiveDoc = await collectiveRef.get();
-
-    if (!collectiveDoc.exists) return res.status(404).send({ error: "Collective not found." });
-    if (collectiveDoc.data().membership_extinction_date) {
-      return res.status(400).send({ error: "Club is already terminated." });
-    }
-
-    //Validate Termination Date (if provided)
-    let parsedTerminationDate = null;
-    if (terminationDate) {
-      parsedTerminationDate = parseDate(terminationDate);
-      if (!parsedTerminationDate) {
-        return res.status(400).send({ error: "Invalid termination date format." });
-      }
-         if (parsedTerminationDate.toDate() > jsNow) {
-        return res.status(400).send({ error: "Termination date cannot be in the future." });
-      }
-    }
-
-    let batch = db.batch();
-    let operationCount = 0;
-
-    // Terminate the Club
-    batch.update(collectiveRef, {
-      membership_extinction_date: parsedTerminationDate || dbNow,
-      modifiedAt: dbNow,
-      modifiedBy: userEmail
-    });
-    operationCount++;
-
-    // Terminate all Athletes associated
-    const athletes = await db.collection("registered_members")
-      .where("collective_member_ref", "==", collectiveId)
-      .get();
-
-    for (const doc of athletes.docs) {
-      batch = await commitIfFull(batch, operationCount, db);
-      batch.update(doc.ref, {
-        membership_extinction_date: parsedTerminationDate || dbNow,
-        modifiedAt: dbNow,
-        modifiedBy: userEmail
+    // Filter for acttive only and Map to rows
+    const rows = snapshot.docs
+      .filter(doc => {
+        const data = doc.data();
+        // Active = field doesn't exist OR field is null
+        return !data.membership_extinction_date;
+      })
+      .map(doc => {
+        const data = doc.data();
+        const values = [
+          data.name,
+          data.company_id,
+          data.address?.street_and_number,
+          data.address?.zip_code,
+          data.address?.township,
+          data.contact_person?.first_name,
+          data.contact_person?.last_name,
+          data.contact_person?.email,
+          data.contact_person?.phone_number,
+          formatFirestoreDate(data.membership_origin_date),
+          formatFirestoreDate(data.membership_extinction_date),
+          doc.id
+        ];
+        return values.map(v => `"${sanitizeForCsv(v)}"`).join(",");
       });
-      operationCount++;
-    }
 
-    await batch.commit();
-    res.status(200).send({ message: `Club ${collectiveId} and ${athletes.size} members terminated.` });
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=active_collectives.csv");
+    return res.status(200).send(csvContent);
 
   } catch (error) {
-    console.error("TERMINATE_COLLECTIVE_ERROR:", error);
-    res.status(500).send({ error: "Internal Server Error" });
+    console.error("EXPORT_COLLECTIVE_ERROR:", error);
+    res.status(500).send({ error: "Failed to export collectives." });
   }
 };
 
@@ -239,4 +224,126 @@ const transferRegisteredMembers = async (req, res, db) => {
   }
 };
 
-module.exports = { importCollectives, terminateCollective, transferRegisteredMembers };
+const terminateCollective = async (req, res, db) => {
+  try {
+    const { collectiveId, terminationDate } = req.body;
+    const userEmail = req.user.email;
+    const dbNow = FieldValue.serverTimestamp();
+    const jsNow = new Date();
+
+    if (!collectiveId) return res.status(400).send({ error: "Missing collectiveId." });
+
+    // Validate Source Collective
+    const collectiveRef = db.collection("collective_members").doc(collectiveId);
+    const collectiveDoc = await collectiveRef.get();
+
+    if (!collectiveDoc.exists) return res.status(404).send({ error: "Collective not found." });
+    if (collectiveDoc.data().membership_extinction_date) {
+      return res.status(400).send({ error: "Club is already terminated." });
+    }
+
+    //Validate Termination Date (if provided)
+    let parsedTerminationDate = null;
+    if (terminationDate) {
+      parsedTerminationDate = parseDate(terminationDate);
+      if (!parsedTerminationDate) {
+        return res.status(400).send({ error: "Invalid termination date format." });
+      }
+         if (parsedTerminationDate.toDate() > jsNow) {
+        return res.status(400).send({ error: "Termination date cannot be in the future." });
+      }
+    }
+
+    let batch = db.batch();
+    let operationCount = 0;
+
+    // Terminate the Club
+    batch.update(collectiveRef, {
+      membership_extinction_date: parsedTerminationDate || dbNow,
+      modifiedAt: dbNow,
+      modifiedBy: userEmail
+    });
+    operationCount++;
+
+    // Terminate all Athletes associated
+    const athletes = await db.collection("registered_members")
+      .where("collective_member_ref", "==", collectiveId)
+      .get();
+
+    for (const doc of athletes.docs) {
+      batch = await commitIfFull(batch, operationCount, db);
+      batch.update(doc.ref, {
+        membership_extinction_date: parsedTerminationDate || dbNow,
+        modifiedAt: dbNow,
+        modifiedBy: userEmail
+      });
+      operationCount++;
+    }
+
+    await batch.commit();
+    res.status(200).send({ message: `Club ${collectiveId} and ${athletes.size} members terminated.` });
+
+  } catch (error) {
+    console.error("TERMINATE_COLLECTIVE_ERROR:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+const deleteCollective = async (req, res, db) => {
+  try {
+    const { collectiveId } = req.body;
+
+    if (!collectiveId) {
+      return res.status(400).send({ error: "Missing collectiveId." });
+    }
+
+    // Fetch the document to check existence and status
+    const collectiveRef = db.collection("collective_members").doc(collectiveId);
+    const collectiveSnap = await collectiveRef.get();
+
+    if (!collectiveSnap.exists) {
+      return res.status(404).send({ error: "Collective member not found." });
+    }
+
+    const data = collectiveSnap.data();
+
+    // Constraint: Only delete if already terminated
+    if (!data.membership_extinction_date) {
+      return res.status(400).send({ 
+        error: "Cannot delete an active member. You must terminate the membership first." 
+      });
+    }
+
+    // Prepare for Cascade Deletion
+    const athletesSnap = await db.collection("registered_members")
+      .where("collective_member_ref", "==", collectiveId)
+      .get();
+
+    let batch = db.batch();
+    let opCount = 0;
+
+    // Add athletes to the deletion batch
+    for (const doc of athletesSnap.docs) {
+      batch = await commitIfFull(batch, opCount, db);
+      batch.delete(doc.ref);
+      opCount++;
+    }
+
+    // Add the collective itself to the batch
+    batch = await commitIfFull(batch, opCount, db);
+    batch.delete(collectiveRef);
+
+    // Execute
+    await batch.commit();
+
+    return res.status(200).send({ 
+      message: `Successfully deleted collective ${collectiveId} and ${athletesSnap.size} associated members.` 
+    });
+
+  } catch (error) {
+    console.error("DELETE_COLLECTIVE_ERROR:", error);
+    return res.status(500).send({ error: "Internal Server Error during deletion." });
+  }
+};
+
+module.exports = { importCollectives, exportCollectives, transferRegisteredMembers, terminateCollective, deleteCollective};
