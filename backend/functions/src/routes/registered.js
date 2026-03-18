@@ -1,5 +1,5 @@
 const { FieldValue } = require("firebase-admin/firestore");
-const { parseDate, commitIfFull } = require("../middleware/utils.js");
+const { parseDate, formatFirestoreDate, commitIfFull, sanitizeForCsv } = require("../middleware/utils.js");
 
 const ALLOWED_CSV_FIELDS = [
   "first_name", "last_name", "birth_number", "sex",
@@ -130,4 +130,79 @@ const importRegistered = async (req, res, db) => {
   }
 };
 
-module.exports = { importRegistered };
+// router.get("/export-registered/:collectiveId", exportRegistered);
+
+const exportRegistered = async (req, res, db) => {
+  try {
+    const { collectiveId } = req.params;
+
+    if (!collectiveId) {
+      return res.status(400).send({ error: "Collective ID is required in the URL path." });
+    }
+
+    const collectiveRef = db.collection("collective_members").doc(collectiveId);
+    const collectiveSnap = await collectiveRef.get();
+
+    if (!collectiveSnap.exists) {
+      return res.status(404).send({ error: `Collective member with ID [${collectiveId}] not found.` });
+    }
+
+    const collectiveData = collectiveSnap.data();
+
+    // Fetch athletes belonging to this club
+    const snapshot = await db.collection("registered_members")
+      .where("collective_member_ref", "==", collectiveId)
+      .get();
+
+    const headers = [
+      "first_name", "last_name", "birth_number", "sex",
+      "date_of_birth", "street_and_number", "zip_code", "township",
+      "membership_origin_date", "membership_extinction_date",
+      "medical_examination_validity", "competitions_last_12_months",
+      "referee", "coach", "id"
+    ];
+
+    // Filter for ACTIVE athletes and format rows
+    const rows = snapshot.docs
+      .filter(doc => !doc.data().membership_extinction_date)
+      .map(doc => {
+        const data = doc.data();
+        const values = [
+          data.first_name,
+          data.last_name,
+          data.birth_number,
+          data.sex,
+          formatFirestoreDate(data.date_of_birth),
+          data.address?.street_and_number,
+          data.address?.zip_code,
+          data.address?.township,
+          formatFirestoreDate(data.membership_origin_date),
+          formatFirestoreDate(data.membership_extinction_date),
+          formatFirestoreDate(data.medical_examination_validity),
+          data.competitions_last_12_months || 0,
+          data.referee ? "ano" : "ne",
+          data.coach ? "ano" : "ne",
+          doc.id
+        ];
+        return values.map(v => `"${sanitizeForCsv(v)}"`).join(",");
+      });
+
+    // Generate CSV Content
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    // Set Headers for download
+    const safeClubName = collectiveData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const dateStr = formatFirestoreDate({ toDate: () => new Date() });
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename=active_members_${safeClubName}_${dateStr}.csv`);
+    
+    return res.status(200).send(csvContent);
+
+  } catch (error) {
+    console.error("EXPORT_REGISTERED_ERROR:", error);
+    res.status(500).send({ error: "An internal error occurred during the export process." });
+  }
+};
+
+module.exports = { importRegistered, exportRegistered };

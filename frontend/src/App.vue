@@ -26,7 +26,7 @@ import {
 
 } from "@/services/firestoreService.js";
 
-import { downloadExport } from "@/services/exportService.js";
+import { downloadCollectiveExport,downloadRegisteredExport } from "@/services/exportService.js";
 
 import AdminPanel from "@/components/AdminPanel.vue";
 import CsvImporterCollective from "@/components/CsvImporterCollective.vue";
@@ -70,6 +70,7 @@ const collectiveId = ref("");
 const registeredId = ref("");
 const collectiveList = ref([]);
 const registeredList = ref([]);
+const exportRegisteredCollectiveId = ref("");
 
 
 // ---------------------
@@ -192,9 +193,14 @@ const removeRegistered = async () => {
       <csv-importer-collective></csv-importer-collective>
       <csv-importer-registered></csv-importer-registered>
       <div>
-        <button @click="downloadExport">Download Collective CSV</button>
+        <button @click="downloadCollectiveExport">Download Collective CSV</button>
+      </div>
+      <div>
+        <input v-model="exportRegisteredCollectiveId" placeholder="collectiveId" type="text" />
+        <button @click="downloadRegisteredExport(exportRegisteredCollectiveId)">Download Registered CSV</button>
       </div>
 
     </div>
+    <br>
   </div>
 </template>

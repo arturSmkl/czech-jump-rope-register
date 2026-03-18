@@ -4,7 +4,7 @@ const cors = require("cors");
 const { onRequest } = require("firebase-functions/v2/https");
 const { validateRole } = require("./src/middleware/auth.js");
 const { importCollectives, exportCollectives, terminateCollective, deleteCollective, transferRegisteredMembers } = require("./src/routes/collectives");
-const { importRegistered } = require("./src/routes/registered.js");
+const { exportRegistered, importRegistered } = require("./src/routes/registered.js");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -29,7 +29,7 @@ app.post("/collectives/terminate",
  * collectiveId: "ID_OF_CLUB"
  * }
  */
-app.delete("/collectives/delete-",
+app.delete("/collectives/delete",
   validateRole(['admin', 'editor']),
   (req, res) => deleteCollective(req, res, db)
 );
@@ -70,6 +70,11 @@ app.post("/registered/import",
 app.get("/collectives/export",
   validateRole(["admin", "editor"]),
   async (req, res) => exportCollectives(req, res, db)
+);
+
+app.get("/registered/export/:collectiveId",
+  validateRole(["admin", "editor"]),
+  async (req, res) => exportRegistered(req, res, db)
 );
 
 exports.api = onRequest({ region: "europe-west3" }, app)
