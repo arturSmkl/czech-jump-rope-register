@@ -6,7 +6,7 @@ const { parseDate, formatFirestoreDate, sanitizeForCsv, commitIfFull } = require
  * If any extra keys are found, it throws an error.
  */
 const ALLOWED_CSV_FIELDS = [
-  "name", "company_id", "street_and_number", "zip_code", "township",
+  "name", "company_id", "street_and_number", "zip_code", "township", "country",
   "contact_person_first_name", "contact_person_last_name", 
   "contact_person_email", "contact_person_phone_number",
   "membership_origin_date", "membership_extinction_date", "id"
@@ -71,7 +71,8 @@ const importCollectives = async (req, res, db) => {
         address: {
           street_and_number: row.street_and_number || null,
           zip_code: row.zip_code || null,
-          township: row.township || null
+          township: row.township || null,
+          country: row.country || null
         },
         contact_person: {
           first_name: row.contact_person_first_name || null,
@@ -112,13 +113,6 @@ const exportCollectives = async (req, res, db) => {
     // Fetch all collectives
     const snapshot = await db.collection("collective_members").get();
 
-    const headers = [
-      "name", "company_id", "street_and_number", "zip_code", "township",
-      "contact_person_first_name", "contact_person_last_name", 
-      "contact_person_email", "contact_person_phone_number",
-      "membership_origin_date", "membership_extinction_date", "id"
-    ];
-
     // Filter for acttive only and Map to rows
     const rows = snapshot.docs
       .filter(doc => {
@@ -134,6 +128,7 @@ const exportCollectives = async (req, res, db) => {
           data.address?.street_and_number,
           data.address?.zip_code,
           data.address?.township,
+          data.address?.country,
           data.contact_person?.first_name,
           data.contact_person?.last_name,
           data.contact_person?.email,
@@ -145,7 +140,7 @@ const exportCollectives = async (req, res, db) => {
         return values.map(v => `"${sanitizeForCsv(v)}"`).join(",");
       });
 
-    const csvContent = [headers.join(","), ...rows].join("\n");
+    const csvContent = [ALLOWED_CSV_FIELDS.join(","), ...rows].join("\n");
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=active_collectives.csv");

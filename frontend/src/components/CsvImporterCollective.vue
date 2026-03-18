@@ -9,7 +9,7 @@ const isUploading = ref(false);
 
 // The exact headers the backend expects
 const EXPECTED_HEADERS = [
-  "name", "company_id", "street_and_number", "zip_code", "township",
+  "name", "company_id", "street_and_number", "zip_code", "township", "country",
   "contact_person_first_name", "contact_person_last_name",
   "contact_person_email", "contact_person_phone_number",
   "membership_origin_date", "membership_extinction_date", "id"

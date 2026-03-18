@@ -11,7 +11,7 @@ const collectiveId = ref("");
 // The exact headers the backend expects
 const EXPECTED_HEADERS = [
   "first_name", "last_name", "birth_number", "sex",
-  "date_of_birth", "street_and_number", "zip_code", "township",
+  "date_of_birth", "street_and_number", "zip_code", "township", "country",
   "membership_origin_date", "membership_extinction_date",
   "medical_examination_validity", "competitions_last_12_months",
   "referee", "coach", "id"

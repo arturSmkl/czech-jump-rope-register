@@ -4,16 +4,34 @@ const { Timestamp } = require("firebase-admin/firestore");
 const parseDate = (dateStr) => {
   if (!dateStr || typeof dateStr !== "string") return null;
   
-  const parts = dateStr.trim().split("-");
-  if (parts.length !== 3) return null;
+  const str = dateStr.trim();
 
-  const day = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1; 
-  const year = parseInt(parts[2], 10);
+  // Strict Format Check: dd-mm-yyyy
+  // ^\d{2} = starts with 2 digits
+  // - = literal hyphen
+  // \d{4}$ = ends with 4 digits
+  const regex = /^\d{2}-\d{2}-\d{4}$/;
+  if (!regex.test(str)) return null;
 
+  // Extract parts
+  const [dStr, mStr, yStr] = str.split("-");
+  const day = parseInt(dStr, 10);
+  const month = parseInt(mStr, 10) - 1; // JS months are 0-11
+  const year = parseInt(yStr, 10);
+
+  // Create Date object
   const dateObj = new Date(year, month, day);
 
-  return isNaN(dateObj.getTime()) ? null : Timestamp.fromDate(dateObj);
+  // Logical Validation (The "Drift" Check)
+  // We check if the values we get back match exactly what we put in.
+  const isValidDate = 
+    dateObj.getFullYear() === year &&
+    dateObj.getMonth() === month &&
+    dateObj.getDate() === day;
+
+  if (!isValidDate) return null;
+
+  return Timestamp.fromDate(dateObj);
 };
 
 // Firestore Timestamp to dd-mm-yyyy
@@ -23,7 +41,7 @@ const formatFirestoreDate = (timestamp) => {
   const date = timestamp.toDate();
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
+  const year = String(date.getFullYear()).padStart(4, '0');
   
   return `${day}-${month}-${year}`;
 };

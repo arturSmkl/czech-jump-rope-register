@@ -1,3 +1,5 @@
-name,company_id,street_and_number,zip_code,township,contact_person_first_name,contact_person_last_name,contact_person_email,contact_person_phone_number,membership_origin_date,membership_extinction_date,id
-"bimbimbambam","12345678","Main St 12","10000","Prague","John","Doe","john.doe@spartans.com","+420123456789","15-1-2023","16-2-2024","uO6DkEfSMG7zUN05jWep"
-
+name,company_id,street_and_number,zip_code,township,country,contact_person_first_name,contact_person_last_name,contact_person_email,contact_person_phone_number,membership_origin_date,membership_extinction_date,id
+Spartans Football Club,12345678,Main St 12,10000,Prague,Czech Republic,John,Doe,john.doe@spartans.com,+420123456789,01-01-2000,,
+Blue Waves Swimming,87654321,Riverside 5,20000,Brno,Czech Republic,Jane,Smith,jane.smith@bluewaves.cz,+420987654321,1-1-2000,,
+Golden Eagles Basketball,11223344,High Road 88,30000,Ostrava,Czech Republic,Michael,Jordan,m.j@eagles.com,,9f5sg5-*+2Qěšřřý)---§.ú,,
+Rapid Runners,44332211,Track Lane 1,40000,Pilsen,Czech Republic,Alice,Walker,alice@rapidrunners.org,+420555666777,99-99-2000,,

@@ -3,7 +3,7 @@ const { parseDate, formatFirestoreDate, commitIfFull, sanitizeForCsv } = require
 
 const ALLOWED_CSV_FIELDS = [
   "first_name", "last_name", "birth_number", "sex",
-  "date_of_birth", "street_and_number", "zip_code", "township",
+  "date_of_birth", "street_and_number", "zip_code", "township", "country",
   "membership_origin_date", "membership_extinction_date",
   "medical_examination_validity", "competitions_last_12_months",
   "referee", "coach", "id"
@@ -95,7 +95,8 @@ const importRegistered = async (req, res, db) => {
         address: {
           street_and_number: row.street_and_number || null,
           zip_code: row.zip_code || null,
-          township: row.township || null
+          township: row.township || null,
+          country: row.country || null
         },
         membership_origin_date: originDate,
         membership_extinction_date: finalExtinctionDate,
@@ -130,8 +131,6 @@ const importRegistered = async (req, res, db) => {
   }
 };
 
-// router.get("/export-registered/:collectiveId", exportRegistered);
-
 const exportRegistered = async (req, res, db) => {
   try {
     const { collectiveId } = req.params;
@@ -154,15 +153,7 @@ const exportRegistered = async (req, res, db) => {
       .where("collective_member_ref", "==", collectiveId)
       .get();
 
-    const headers = [
-      "first_name", "last_name", "birth_number", "sex",
-      "date_of_birth", "street_and_number", "zip_code", "township",
-      "membership_origin_date", "membership_extinction_date",
-      "medical_examination_validity", "competitions_last_12_months",
-      "referee", "coach", "id"
-    ];
-
-    // Filter for ACTIVE athletes and format rows
+    // Filter for active athletes and format rows
     const rows = snapshot.docs
       .filter(doc => !doc.data().membership_extinction_date)
       .map(doc => {
@@ -176,6 +167,7 @@ const exportRegistered = async (req, res, db) => {
           data.address?.street_and_number,
           data.address?.zip_code,
           data.address?.township,
+          data.address?.country,
           formatFirestoreDate(data.membership_origin_date),
           formatFirestoreDate(data.membership_extinction_date),
           formatFirestoreDate(data.medical_examination_validity),
@@ -188,7 +180,7 @@ const exportRegistered = async (req, res, db) => {
       });
 
     // Generate CSV Content
-    const csvContent = [headers.join(","), ...rows].join("\n");
+    const csvContent = [ALLOWED_CSV_FIELDS.join(","), ...rows].join("\n");
 
     // Set Headers for download
     const safeClubName = collectiveData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
