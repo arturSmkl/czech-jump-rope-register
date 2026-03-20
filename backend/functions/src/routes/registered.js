@@ -176,17 +176,18 @@ const exportRegistered = async (req, res, db) => {
           data.coach ? "ano" : "ne",
           doc.id
         ];
-        return values.map(v => `"${sanitizeForCsv(v)}"`).join(",");
+        return values.map(v => `"${sanitizeForCsv(v)}"`).join(";");
       });
 
     // Generate CSV Content
-    const csvContent = [ALLOWED_CSV_FIELDS.join(","), ...rows].join("\n");
+    const csvContent = [ALLOWED_CSV_FIELDS.join(";"), ...rows].join("\n");
 
     // Set Headers for download
     const safeClubName = collectiveData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const dateStr = formatFirestoreDate({ toDate: () => new Date() });
 
     res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.setHeader("Content-Disposition", `attachment; filename=active_members_${safeClubName}_${dateStr}.csv`);
     
     return res.status(200).send(csvContent);

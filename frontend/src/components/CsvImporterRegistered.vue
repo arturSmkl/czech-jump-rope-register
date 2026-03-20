@@ -23,6 +23,7 @@ const handleFileChange = (event) => {
 
   Papa.parse(file, {
     header: true,
+    delimiter: ";",
     skipEmptyLines: true,
     complete: (results) => {
       processData(results);
