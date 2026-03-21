@@ -26,7 +26,7 @@ import {
 
 } from "@/services/firestoreService.js";
 
-import { downloadCollectiveExport,downloadRegisteredExport } from "@/services/exportService.js";
+import { downloadCollectiveExport,downloadRegisteredExport, downloadRegisteredExportNsa } from "@/services/exportService.js";
 
 import AdminPanel from "@/components/AdminPanel.vue";
 import CsvImporterCollective from "@/components/CsvImporterCollective.vue";
@@ -199,7 +199,9 @@ const removeRegistered = async () => {
         <input v-model="exportRegisteredCollectiveId" placeholder="collectiveId" type="text" />
         <button @click="downloadRegisteredExport(exportRegisteredCollectiveId)">Download Registered CSV</button>
       </div>
-
+      <div>
+        <button @click="downloadRegisteredExportNsa">Download NSA CSV</button>
+      </div>
     </div>
     <br>
   </div>

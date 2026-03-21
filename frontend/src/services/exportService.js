@@ -67,3 +67,12 @@ export const downloadRegisteredExport = async (collectiveId) => {
     throw err;
   }
 };
+
+export const downloadRegisteredExportNsa = async () => {
+  try {
+    return await downloadExport(`${API_URL}/registered/export-nsa`);
+  }
+  catch (err) {
+    throw err;
+  }
+};

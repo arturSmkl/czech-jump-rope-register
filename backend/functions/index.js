@@ -4,15 +4,49 @@ const cors = require("cors");
 const { onRequest } = require("firebase-functions/v2/https");
 const { validateRole } = require("./src/middleware/auth.js");
 const { importCollectives, exportCollectives, terminateCollective, deleteCollective, transferRegisteredMembers } = require("./src/routes/collectives");
-const { exportRegistered, importRegistered } = require("./src/routes/registered.js");
+const { exportRegistered, importRegistered, exportRegisteredNsa } = require("./src/routes/registered.js");
 
 admin.initializeApp();
 const db = admin.firestore();
 const app = express();
 
 // change for production to frontend URL
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(cors({
+  // origin: true allows any origin (fine for local dev) 
+  origin: true, 
+  methods: ['GET', 'POST', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  // This allows your frontend to read the filename header
+  exposedHeaders: ['Content-Disposition'] 
+}));
 app.use(express.json())
+
+/**
+ * Body: { 
+ * data: [{}, {}, ...]
+ * }
+ */
+app.post("/collectives/import", 
+  validateRole(["admin", "editor"]), 
+  (req, res) => importCollectives(req, res, db)
+);
+
+app.get("/collectives/export",
+  validateRole(["admin", "editor"]),
+  async (req, res) => exportCollectives(req, res, db)
+);
+
+/**
+ * Body: { 
+ * collectiveId: "ID_OF_CLUB"
+ * action: "nullify" | "nullify_and_terminate" | "transfer"
+ * targetCollectiveId: "ID_OF_TARGET_CLUB" (required if action is "transfer")
+ * }
+ */
+app.post("/collectives/transfer-registered-members",
+  validateRole(['admin', 'editor']),
+  (req, res) => transferRegisteredMembers(req, res, db)
+);
 
 /**
  * Body: { 
@@ -34,27 +68,7 @@ app.delete("/collectives/delete",
   (req, res) => deleteCollective(req, res, db)
 );
 
-/**
- * Body: { 
- * collectiveId: "ID_OF_CLUB"
- * action: "nullify" | "nullify_and_terminate" | "transfer"
- * targetCollectiveId: "ID_OF_TARGET_CLUB" (required if action is "transfer")
- * }
- */
-app.post("/collectives/transfer-registered-members",
-  validateRole(['admin', 'editor']),
-  (req, res) => transferRegisteredMembers(req, res, db)
-);
 
-/**
- * Body: { 
- * data: [{}, {}, ...]
- * }
- */
-app.post("/collectives/import", 
-  validateRole(["admin", "editor"]), 
-  (req, res) => importCollectives(req, res, db)
-);
 
 /**
  * Body: { 
@@ -67,14 +81,14 @@ app.post("/registered/import",
   (req, res) => importRegistered(req, res, db)
 );
 
-app.get("/collectives/export",
-  validateRole(["admin", "editor"]),
-  async (req, res) => exportCollectives(req, res, db)
-);
-
 app.get("/registered/export/:collectiveId",
   validateRole(["admin", "editor"]),
   async (req, res) => exportRegistered(req, res, db)
+);
+
+app.get("/registered/export-nsa",
+  validateRole(["admin", "editor"]),
+  async (req, res) => exportRegisteredNsa(req, res, db)
 );
 
 exports.api = onRequest({ region: "europe-west3" }, app)

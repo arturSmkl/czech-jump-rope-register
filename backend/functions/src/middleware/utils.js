@@ -46,6 +46,18 @@ const formatFirestoreDate = (timestamp) => {
   return `${day}-${month}-${year}`;
 };
 
+ // Formats Firestore Timestamp to d.m.yyyy (no leading zeros)
+const formatNSADate = (timestamp) => {
+  if (!timestamp || typeof timestamp.toDate !== 'function') return "";
+  
+  const date = timestamp.toDate();
+  const day = date.getDate(); 
+  const month = date.getMonth() + 1; 
+  const year = date.getFullYear();
+  
+  return `${day}.${month}.${year}`;
+};
+
 const commitIfFull = async (batch, count, db) => {
   if (count > 0 && count % 499 === 0) {
     await batch.commit();
@@ -65,4 +77,4 @@ const sanitizeForCsv = (val) => {
   return str;
 };
 
-module.exports = { parseDate, formatFirestoreDate, commitIfFull, sanitizeForCsv };
+module.exports = { parseDate, formatFirestoreDate, formatNSADate, commitIfFull, sanitizeForCsv };

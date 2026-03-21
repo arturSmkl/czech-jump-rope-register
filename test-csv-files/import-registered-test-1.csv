@@ -1,5 +1,11 @@
-id,first_name,last_name,birth_number,sex,date_of_birth,street_and_number,zip_code,township,country,membership_origin_date,membership_extinction_date,medical_examination_validity,competitions_last_12_months,referee,coach
-,Pavel,Novak,900101/1234,M,01-01-1990,Dlouha 10,11000,Praha,Czech Republic,01-02-2023,,01-02-2027,5,ano,ne
-,Jan,Svoboda,850505/4321,M,05-05-1985,Kratka 5,22000,Brno,Czech Republic,15-03-2022,,15-03-2027,2,ne,ano
-,Marie,Cerna,925812/9999,Ž,12-08-1992,Modra 3,33000,Ostrava,Czech Republic,10-10-2021,,10-10-2027,12,ne,ne
-,Petr,Kucera,000101/0001,M,01-01-2000,Zelena 8,44000,Plzen,Czech Republic,01-01-2024,,01-01-2028,0,ne,ne
+first_name;last_name;birth_number;sex;date_of_birth;street;house_number;zip_code;township;country;nationality_code;membership_origin_date;membership_extinction_date;medical_examination_validity;competitions_last_12_months;athlete;referee;coach;id
+Jan;Novák;9001011234;M;;Dlouhá;10;11000;Praha;Czechia;CZE;01-01-2023;;01-01-2025;5;ano;ne;ne;
+Eva;Svobodová;9252125678;Z;;Krátká;5;60200;Brno;Czechia;CZE;15-03-2022;;15-03-2024;0;ne;ne;ano;
+Peter;Slovák;;M;10-05-1995;Hlavná;100;81101;Bratislava;Slovakia;SVK;20-06-2023;;20-06-2024;3;ano;ne;ne;
+John;Smith;;M;25-12-1988;Broadway;42;10001;New York;USA;USA;01-09-2023;;01-09-2024;12;ano;ne;ano;
+Marie;Černá;8555059999;Z;;Úzká;1;70200;Ostrava;Czechia;CZE;10-10-2020;;10-10-2024;2;ano;ano;ano;
+Petr;Nikdo;0001010000;M;;Tichá;0;00000;Nikde;Czechia;CZE;01-01-2024;;;0;ne;ne;ne;
+Anna;Kowalska;;Z;14-02-1992;Polna;12;00-001;Warszawa;Poland;POL;05-05-2023;;05-05-2024;1;ano;ne;ne;
+Josef;Starý;7001011111;M;;Stará;99;50001;Hradec Králové;Czechia;CZE;01-01-2010;01-01-2024;01-01-2024;0;ano;ne;ne;
+Hans;Müller;;M;30-06-1980;Berliner Str.;8;10115;Berlin;Germany;DEU;12-12-2023;;12-12-2024;0;ne;ne;ano;
+Jana;Veselá;9555254321;Z;;Slunná;77;46001;Liberec;Czechia;CZE;01-02-2023;31-12-2023;01-02-2024;8;ano;ne;ne;

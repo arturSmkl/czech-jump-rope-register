@@ -1,12 +1,12 @@
 const { FieldValue } = require("firebase-admin/firestore");
-const { parseDate, formatFirestoreDate, commitIfFull, sanitizeForCsv } = require("../middleware/utils.js");
+const { parseDate, formatFirestoreDate, formatNSADate, commitIfFull, sanitizeForCsv } = require("../middleware/utils.js");
 
 const ALLOWED_CSV_FIELDS = [
-  "first_name", "last_name", "birth_number", "sex",
-  "date_of_birth", "street_and_number", "zip_code", "township", "country",
-  "membership_origin_date", "membership_extinction_date",
+  "first_name", "last_name", "birth_number", "sex", "date_of_birth",
+  "street", "house_number", "zip_code", "township", "country",
+  "nationality_code", "membership_origin_date", "membership_extinction_date",
   "medical_examination_validity", "competitions_last_12_months",
-  "referee", "coach", "id"
+  "athlete", "referee", "coach", "id"
 ];
 
 const importRegistered = async (req, res, db) => {
@@ -92,8 +92,10 @@ const importRegistered = async (req, res, db) => {
         birth_number: row.birth_number || null,
         sex: row.sex || null,
         date_of_birth: dob,
+        nationality_code: row.nationality_code || null,
         address: {
-          street_and_number: row.street_and_number || null,
+          street: row.street || null,
+          house_number: row.house_number || null,
           zip_code: row.zip_code || null,
           township: row.township || null,
           country: row.country || null
@@ -102,6 +104,7 @@ const importRegistered = async (req, res, db) => {
         membership_extinction_date: finalExtinctionDate,
         medical_examination_validity: medicalDate,
         competitions_last_12_months: parseInt(row.competitions_last_12_months, 10) || 0,
+        athlete: row.athlete === "ano",
         referee: row.referee === "ano",
         coach: row.coach === "ano",
         collective_member_ref: collective_member_ref || null,
@@ -198,4 +201,104 @@ const exportRegistered = async (req, res, db) => {
   }
 };
 
-module.exports = { importRegistered, exportRegistered };
+const exportRegisteredNsa = async (req, res, db) => {
+  try {
+    // Fetch ALL collectives first to create a lookup table for company_id (IČO)
+    const collectivesSnap = await db.collection("collective_members").get();
+    const clubLookup = new Map();
+    
+    collectivesSnap.forEach(doc => {
+      clubLookup.set(doc.id, doc.data().company_id || "");
+    });
+
+    // Fetch ALL registered members
+    const membersSnap = await db.collection("registered_members").get();
+
+    // Define the 32 NSA Headers
+    const headers = [
+      "[JMENO]", "[PRIJMENI]", "[TITUL_PRED]", "[TITUL_ZA]", "[RODNE_CISLO]",
+      "[OBCANSTVI]", "[DATUM_NAROZENI]", "[POHLAVI]", "[NAZEV_OBCE]",
+      "[NAZEV_CASTI_OBCE]", "[NAZEV_ULICE]", "[CISLO_POPISNE]", "[CISLO_ORIENTACNI]",
+      "[PSC]", "[SPORTOVEC]", "[SPORTOVCEM_OD]", "[SPORTOVCEM_DO]",
+      "[SPORTOVEC_CETNOST]", "[SPORTOVEC_DRUH_SPORTU]", "[SPORTOVEC_CINNOST_OD]",
+      "[SPORTOVEC_CINNOST_DO]", "[SPORTOVEC_UCAST_SOUTEZE_POCET]", "[TRENER]",
+      "[TRENEREM_OD]", "[TRENEREM_DO]", "[TRENER_CETNOST]", "[TRENER_DRUH_SPORTU]",
+      "[TRENER_CINNOST_OD]", "[TRENER_CINNOST_DO]", "[EXT_ID]", "[SVAZ_ICO_SKTJ]", "[STAV]"
+    ];
+
+    // Filter and Process Rows
+    const rows = membersSnap.docs
+      .map(doc => doc.data())
+      // Filter: Skip if neither athlete nor coach is true
+      .filter(m => m.athlete === true || m.coach === true)
+      .map(m => {
+        const isCze = m.nationality_code === "CZE";
+        const isAthlete = m.athlete === true;
+        const isCoach = m.coach === true;
+        
+        // Get the IČO from our pre-fetched Map using the reference
+        const clubIco = clubLookup.get(m.collective_member_ref) || "";
+
+        // Map fields based on your instructions
+        const rowData = [
+          m.first_name,                                      // [JMENO]
+          m.last_name,                                       // [PRIJMENI]
+          "",                                                // [TITUL_PRED]
+          "",                                                // [TITUL_ZA]
+          isCze ? m.birth_number : "",                       // [RODNE_CISLO]
+          m.nationality_code,                                // [OBCANSTVI]
+          !isCze ? formatNSADate(m.date_of_birth) : "",      // [DATUM_NAROZENI]
+          m.sex,                                             // [POHLAVI]
+          !isCze ? (m.address?.township || "") : "",         // [NAZEV_OBCE]
+          "",                                                // [NAZEV_CASTI_OBCE]
+          "",                                                // [NAZEV_ULICE]
+          !isCze ? (m.address?.house_number || "") : "",     // [CISLO_POPISNE]
+          "",                                                // [CISLO_ORIENTACNI]
+          !isCze ? (m.address?.zip_code || "") : "",         // [PSC]
+          isAthlete ? "1" : "0",                              // [SPORTOVEC]
+          isAthlete ? formatNSADate(m.membership_origin_date) : "", // [SPORTOVCEM_OD]
+          isAthlete ? formatNSADate(m.membership_extinction_date) : "", // [SPORTOVCEM_DO]
+          "",                                                // [SPORTOVEC_CETNOST]
+          isAthlete ? "308.1" : "",                          // [SPORTOVEC_DRUH_SPORTU]
+          isAthlete ? formatNSADate(m.membership_origin_date) : "", // [SPORTOVEC_CINNOST_OD]
+          isAthlete ? formatNSADate(m.membership_extinction_date) : "", // [SPORTOVEC_CINNOST_DO]
+          isAthlete ? (m.competitions_last_12_months || 0) : "", // [SPORTOVEC_UCAST_SOUTEZE_POCET]
+          isCoach ? "1" : "0",                               // [TRENER]
+          isCoach ? formatNSADate(m.membership_origin_date) : "", // [TRENEREM_OD]
+          isCoach ? formatNSADate(m.membership_extinction_date) : "", // [TRENEREM_DO]
+          "",                                                // [TRENER_CETNOST]
+          isCoach ? "308.1" : "",                            // [TRENER_DRUH_SPORTU]
+          isCoach ? formatNSADate(m.membership_origin_date) : "", // [TRENER_CINNOST_OD]
+          isCoach ? formatNSADate(m.membership_extinction_date) : "", // [TRENER_CINNOST_DO]
+          "",                                                // [EXT_ID]
+          clubIco,                                           // [SVAZ_ICO_SKTJ]
+          ""                                                 // [STAV]
+        ];
+
+        // Sanitize and join with semicolons
+        return rowData.map(val => {
+          let s = String(val ?? "").replace(/;/g, ' '); 
+          return `"${s}"`;
+        }).join(";");
+      });
+
+    // Build CSV with UTF-8 BOM (Byte Order Mark)
+    // The BOM helps Excel/NSA systems recognize Czech characters like ř, ž, š immediately.
+    const BOM = "\uFEFF";
+    const csvContent = BOM + [headers.join(";"), ...rows].join("\n");
+
+    const dateStr = formatNSADate({ toDate: () => new Date() }).replace(/\./g, '-');
+    
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=NSA_Global_Export_${dateStr}.csv`);
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+
+    return res.status(200).send(csvContent);
+
+  } catch (error) {
+    console.error("GLOBAL_NSA_EXPORT_ERROR:", error);
+    res.status(500).send({ error: "Failed to generate global NSA export." });
+  }
+};
+
+module.exports = { importRegistered, exportRegistered, exportRegisteredNsa };
