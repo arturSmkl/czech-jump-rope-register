@@ -76,3 +76,12 @@ export const downloadRegisteredExportNsa = async () => {
     throw err;
   }
 };
+
+export const downloadOverviewPdf = async () => {
+  try {
+    return await downloadExport(`${API_URL}/reports/overview`);
+  }
+  catch (err) {
+    throw err;
+  }
+};

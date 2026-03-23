@@ -3,16 +3,26 @@ const express = require("express");
 const cors = require("cors");
 const { onRequest } = require("firebase-functions/v2/https");
 const { validateRole } = require("./src/middleware/auth.js");
-const { importCollectives, exportCollectives, terminateCollective, deleteCollective, transferRegisteredMembers } = require("./src/routes/collectives");
-const { exportRegistered, importRegistered, exportRegisteredNsa } = require("./src/routes/registered.js");
+const {
+  importCollectives,
+  exportCollectives,
+  terminateCollective,
+  deleteCollective
+  } = require("./src/routes/collectives");
+const {
+  exportRegistered,
+  importRegistered,
+  exportRegisteredNsa,
+  transferRegisteredMembers
+} = require("./src/routes/registered.js");
+const { generateOverviewPDF } = require("./src/routes/reports.js");
 
 admin.initializeApp();
 const db = admin.firestore();
 const app = express();
 
 // change for production to frontend URL
-app.use(cors({
-  // origin: true allows any origin (fine for local dev) 
+app.use(cors({ 
   origin: true, 
   methods: ['GET', 'POST', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -43,7 +53,7 @@ app.get("/collectives/export",
  * targetCollectiveId: "ID_OF_TARGET_CLUB" (required if action is "transfer")
  * }
  */
-app.post("/collectives/transfer-registered-members",
+app.post("/registered/transfer",
   validateRole(['admin', 'editor']),
   (req, res) => transferRegisteredMembers(req, res, db)
 );
@@ -89,6 +99,13 @@ app.get("/registered/export/:collectiveId",
 app.get("/registered/export-nsa",
   validateRole(["admin", "editor"]),
   async (req, res) => exportRegisteredNsa(req, res, db)
+);
+
+
+
+app.get("/reports/overview",
+  validateRole(["admin", "editor"]),
+  async (req, res) => generateOverviewPDF(req, res, db)
 );
 
 exports.api = onRequest({ region: "europe-west3" }, app)

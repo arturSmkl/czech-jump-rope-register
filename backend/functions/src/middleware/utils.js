@@ -46,7 +46,7 @@ const formatFirestoreDate = (timestamp) => {
   return `${day}-${month}-${year}`;
 };
 
- // Formats Firestore Timestamp to d.m.yyyy (no leading zeros)
+// Formats Firestore Timestamp to d.m.yyyy (no leading zeros)
 const formatNSADate = (timestamp) => {
   if (!timestamp || typeof timestamp.toDate !== 'function') return "";
   
@@ -58,6 +58,7 @@ const formatNSADate = (timestamp) => {
   return `${day}.${month}.${year}`;
 };
 
+// Commits the batch if the count exceeds Firestore's limit and returns a new batch
 const commitIfFull = async (batch, count, db) => {
   if (count > 0 && count % 499 === 0) {
     await batch.commit();
@@ -66,7 +67,7 @@ const commitIfFull = async (batch, count, db) => {
   return batch;
 };
 
- // Prevents CSV injection by prefixing suspicious characters with a single quote
+// Prevents CSV injection by prefixing suspicious characters with a single quote
 const sanitizeForCsv = (val) => {
   if (val === null || val === undefined) return "";
   let str = String(val).replace(/"/g, '""'); // Escape existing quotes

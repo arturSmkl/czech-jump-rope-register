@@ -290,7 +290,7 @@ const exportRegisteredNsa = async (req, res, db) => {
     const dateStr = formatNSADate({ toDate: () => new Date() }).replace(/\./g, '-');
     
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename=NSA_Global_Export_${dateStr}.csv`);
+    res.setHeader("Content-Disposition", `attachment; filename=NSA_export_${dateStr}.csv`);
     res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
     return res.status(200).send(csvContent);
@@ -301,4 +301,71 @@ const exportRegisteredNsa = async (req, res, db) => {
   }
 };
 
-module.exports = { importRegistered, exportRegistered, exportRegisteredNsa };
+const transferRegisteredMembers = async (req, res, db) => {
+  try {
+    const { collectiveId, action, targetCollectiveId } = req.body;
+    const userEmail = req.user.email;
+    const now = FieldValue.serverTimestamp();
+
+    // Argument Validation
+    const validActions = ["nullify", "nullify_and_terminate", "transfer"];
+    if (!collectiveId || !validActions.includes(action)) {
+      return res.status(400).send({ error: "Invalid arguments." });
+    }
+    if (action === "transfer" && !targetCollectiveId) {
+      return res.status(400).send({ error: "Target ID required for transfer." });
+    }
+
+    // Check if Target Club is active (if transferring)
+    let targetIsTerminated = false;
+    if (action === "transfer") {
+      const targetSnap = await db.collection("collective_members").doc(targetCollectiveId).get();
+      if (!targetSnap.exists) return res.status(404).send({ error: "Target Club not found." });
+      if (targetSnap.data().membership_extinction_date) {
+        targetIsTerminated = true;
+      }
+    }
+
+    // Get all athletes
+    const athletes = await db.collection("registered_members")
+      .where("collective_member_ref", "==", collectiveId)
+      .get();
+
+    if (athletes.empty) return res.status(200).send({ message: "No members to update." });
+
+    let batch = db.batch();
+    let operationCount = 0;
+
+    for (const doc of athletes.docs) {
+      batch = await commitIfFull(batch, operationCount, db);
+      
+      let updateData = { modifiedAt: now, modifiedBy: userEmail };
+
+      if (action === "nullify") {
+        updateData.collective_member_ref = null;
+      } 
+      else if (action === "nullify_and_terminate") {
+        updateData.collective_member_ref = null;
+        updateData.membership_extinction_date = now;
+      } 
+      else if (action === "transfer") {
+        updateData.collective_member_ref = targetCollectiveId;
+        if (targetIsTerminated) {
+          updateData.membership_extinction_date = now;
+        }
+      }
+
+      batch.update(doc.ref, updateData);
+      operationCount++;
+    }
+
+    await batch.commit();
+    res.status(200).send({ message: `Processed ${athletes.size} members via ${action}.` });
+
+  } catch (error) {
+    console.error("TRANSFER_MEMBERS_ERROR:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+};
+
+module.exports = { importRegistered, exportRegistered, exportRegisteredNsa, transferRegisteredMembers };

@@ -1,22 +1,167 @@
-// firestore.rules
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User-private docs
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // =========================================================================
+    // GLOBAL HELPER FUNCTIONS
+    // =========================================================================
+    
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.email != null && request.auth.token.email_verified == true;
+    }
+    
+    function getUserEmail() { return request.auth.token.email; }
+    function getUserRole() { return get(/databases/$(database)/documents/authorized_users/$(getUserEmail())).data.role; }
+    
+    function isAdmin() { return getUserRole() == 'admin'; }
+    function isEditor() { return getUserRole() == 'editor'; }
+    function isViewer() { return getUserRole() == 'viewer'; }
+    function isEditorOrAdmin() { return isEditor() || isAdmin(); }
+
+    function isStringOrNull(val) { return val is string || val == null; }
+    function isNumberOrNull(val) { return val is number || val == null; }
+    function isBoolOrNull(val) { return val is bool || val == null; }
+    function isTimestampOrNull(val) { return val is timestamp || val == null; }
+    
+    function isPastOrNowTimestampOrNull(val) {
+      return val == null || (val is timestamp && val <= request.time);
     }
 
-    // Example collection created by the sample API
-    match /items/{id} {
-      allow read: if true;
-      allow write, update, delete: if request.auth != null && request.auth.uid == resource.data.owner;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.owner;
+    function isValidAuditOnCreate(data) {
+      return data.createdAt == request.time && data.createdBy == getUserEmail() &&
+             data.modifiedAt == request.time && data.modifiedBy == getUserEmail();
+    }
+    
+    function isValidAuditOnUpdate(newData, oldData) {
+      return newData.createdAt == oldData.createdAt && newData.createdBy == oldData.createdBy &&
+             newData.modifiedAt == request.time && newData.modifiedBy == getUserEmail();
     }
 
-    // TEMP - Allow everything else by default
-    match /{document=**} { allow read, write: if true; }
+
+    // =========================================================================
+    // AUTHORIZED USERS COLLECTION
+    // =========================================================================
+    match /authorized_users/{emailId} {
+      allow read: if isAuthenticated() && (isAdmin() || getUserEmail() == emailId);
+      allow delete: if isAuthenticated() && isAdmin();
+      allow create, update: if isAuthenticated() && isAdmin() &&
+                            request.resource.data.keys().hasAll(['role']) &&
+                            request.resource.data.keys().hasOnly(['role']) &&
+                            request.resource.data.role in ['admin', 'editor', 'viewer'];
+    }
+
+
+    // =========================================================================
+    // COLLECTIVE MEMBERS COLLECTION
+    // =========================================================================
+    match /collective_members/{docId} {
+      allow read: if isAuthenticated() && (isViewer() || isEditorOrAdmin());
+      allow delete: if isAuthenticated() && isEditorOrAdmin();
+
+      function isValidCollectiveSchema(data) {
+        let allowedFields = [
+          'name', 'company_id', 'street_and_number', 'zip_code', 'township', 'country',
+          'contact_person_first_name', 'contact_person_last_name', 'contact_person_email',
+          'contact_person_phone_number', 'membership_origin_date', 'membership_extinction_date',
+          'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy'
+        ];
+        return data.keys().hasAll(allowedFields) && data.keys().hasOnly(allowedFields);
+      }
+
+      function isValidCollectiveTypes(data) {
+        return isStringOrNull(data.name) &&
+               isStringOrNull(data.company_id) &&
+               isStringOrNull(data.street_and_number) &&
+               isStringOrNull(data.zip_code) &&
+               isStringOrNull(data.township) &&
+               isStringOrNull(data.country) &&
+               isStringOrNull(data.contact_person_first_name) &&
+               isStringOrNull(data.contact_person_last_name) &&
+               isStringOrNull(data.contact_person_email) &&
+               isStringOrNull(data.contact_person_phone_number) &&
+               isPastOrNowTimestampOrNull(data.membership_origin_date) &&
+               // Enforce that clients can ONLY set this to null. Backend will handle real dates.
+               data.membership_extinction_date == null;
+      }
+
+      allow create: if isAuthenticated() && isEditorOrAdmin() &&
+                    isValidCollectiveSchema(request.resource.data) &&
+                    isValidCollectiveTypes(request.resource.data) &&
+                    isValidAuditOnCreate(request.resource.data);
+
+      allow update: if isAuthenticated() && isEditorOrAdmin() &&
+                    isValidCollectiveSchema(request.resource.data) &&
+                    isValidCollectiveTypes(request.resource.data) &&
+                    isValidAuditOnUpdate(request.resource.data, resource.data);
+    }
+
+
+    // =========================================================================
+    // REGISTERED MEMBERS COLLECTION
+    // =========================================================================
+    match /registered_members/{docId} {
+      allow read: if isAuthenticated() && (isViewer() || isEditorOrAdmin());
+      allow delete: if isAuthenticated() && isEditorOrAdmin();
+
+      function isValidRegisteredSchema(data) {
+        let allowedFields = [
+          'first_name', 'last_name', 'birth_number', 'sex', 'date_of_birth', 
+          'street', 'house_number', 'zip_code', 'township', 'country', 
+          'nationality_code', 'membership_origin_date', 'membership_extinction_date', 
+          'medical_examination_validity', 'competitions_last_12_months', 
+          'athlete', 'referee', 'coach', 'collective_member_ref', 
+          'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy'
+        ];
+        return data.keys().hasAll(allowedFields) && data.keys().hasOnly(allowedFields);
+      }
+
+      function isValidRegisteredTypes(data) {
+        return isStringOrNull(data.first_name) &&
+               isStringOrNull(data.last_name) &&
+               isStringOrNull(data.birth_number) &&
+               isStringOrNull(data.sex) &&
+               isPastOrNowTimestampOrNull(data.date_of_birth) &&
+               isStringOrNull(data.street) &&
+               isStringOrNull(data.house_number) &&
+               isStringOrNull(data.zip_code) &&
+               isStringOrNull(data.township) &&
+               isStringOrNull(data.country) &&
+               isStringOrNull(data.nationality_code) &&
+               isPastOrNowTimestampOrNull(data.membership_origin_date) &&
+               isPastOrNowTimestampOrNull(data.membership_extinction_date) &&
+               isTimestampOrNull(data.medical_examination_validity) && 
+               isNumberOrNull(data.competitions_last_12_months) &&
+               isBoolOrNull(data.athlete) &&
+               isBoolOrNull(data.referee) &&
+               isBoolOrNull(data.coach) &&
+               isStringOrNull(data.collective_member_ref);
+      }
+
+      // Validates that the referenced club exists. 
+      // If the club is terminated, the member MUST also be terminated.
+      // If the club is active, the member can be active OR terminated.
+      function isValidCollectiveReference(refId, memberExtinctionDate) {
+        return refId == null || 
+               (
+                 exists(/databases/$(database)/documents/collective_members/$(refId)) &&
+                 (
+                   get(/databases/$(database)/documents/collective_members/$(refId)).data.membership_extinction_date == null ||
+                   memberExtinctionDate != null
+                 )
+               );
+      }
+
+      allow create: if isAuthenticated() && isEditorOrAdmin() &&
+                    isValidRegisteredSchema(request.resource.data) &&
+                    isValidRegisteredTypes(request.resource.data) &&
+                    isValidAuditOnCreate(request.resource.data) &&
+                    isValidCollectiveReference(request.resource.data.collective_member_ref, request.resource.data.membership_extinction_date);
+
+      allow update: if isAuthenticated() && isEditorOrAdmin() &&
+                    isValidRegisteredSchema(request.resource.data) &&
+                    isValidRegisteredTypes(request.resource.data) &&
+                    isValidAuditOnUpdate(request.resource.data, resource.data) &&
+                    isValidCollectiveReference(request.resource.data.collective_member_ref, request.resource.data.membership_extinction_date);
+    }
   }
-  
 }

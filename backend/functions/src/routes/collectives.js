@@ -1,10 +1,6 @@
 const { FieldValue } = require("firebase-admin/firestore");
 const { parseDate, formatFirestoreDate, sanitizeForCsv, commitIfFull } = require("../middleware/utils.js");
 
-/**
- * Validates that the input data only contains the allowed keys.
- * If any extra keys are found, it throws an error.
- */
 const ALLOWED_CSV_FIELDS = [
   "name", "company_id", "street_and_number", "zip_code", "township", "country",
   "contact_person_first_name", "contact_person_last_name", 
@@ -153,72 +149,7 @@ const exportCollectives = async (req, res, db) => {
   }
 };
 
-const transferRegisteredMembers = async (req, res, db) => {
-  try {
-    const { collectiveId, action, targetCollectiveId } = req.body;
-    const userEmail = req.user.email;
-    const now = FieldValue.serverTimestamp();
 
-    // Argument Validation
-    const validActions = ["nullify", "nullify_and_terminate", "transfer"];
-    if (!collectiveId || !validActions.includes(action)) {
-      return res.status(400).send({ error: "Invalid arguments." });
-    }
-    if (action === "transfer" && !targetCollectiveId) {
-      return res.status(400).send({ error: "Target ID required for transfer." });
-    }
-
-    // Check if Target Club is active (if transferring)
-    let targetIsTerminated = false;
-    if (action === "transfer") {
-      const targetSnap = await db.collection("collective_members").doc(targetCollectiveId).get();
-      if (!targetSnap.exists) return res.status(404).send({ error: "Target Club not found." });
-      if (targetSnap.data().membership_extinction_date) {
-        targetIsTerminated = true;
-      }
-    }
-
-    // Get all athletes
-    const athletes = await db.collection("registered_members")
-      .where("collective_member_ref", "==", collectiveId)
-      .get();
-
-    if (athletes.empty) return res.status(200).send({ message: "No members to update." });
-
-    let batch = db.batch();
-    let operationCount = 0;
-
-    for (const doc of athletes.docs) {
-      batch = await commitIfFull(batch, operationCount, db);
-      
-      let updateData = { modifiedAt: now, modifiedBy: userEmail };
-
-      if (action === "nullify") {
-        updateData.collective_member_ref = null;
-      } 
-      else if (action === "nullify_and_terminate") {
-        updateData.collective_member_ref = null;
-        updateData.membership_extinction_date = now;
-      } 
-      else if (action === "transfer") {
-        updateData.collective_member_ref = targetCollectiveId;
-        if (targetIsTerminated) {
-          updateData.membership_extinction_date = now;
-        }
-      }
-
-      batch.update(doc.ref, updateData);
-      operationCount++;
-    }
-
-    await batch.commit();
-    res.status(200).send({ message: `Processed ${athletes.size} members via ${action}.` });
-
-  } catch (error) {
-    console.error("TRANSFER_MEMBERS_ERROR:", error);
-    res.status(500).send({ error: "Internal Server Error" });
-  }
-};
 
 const terminateCollective = async (req, res, db) => {
   try {
@@ -342,4 +273,4 @@ const deleteCollective = async (req, res, db) => {
   }
 };
 
-module.exports = { importCollectives, exportCollectives, transferRegisteredMembers, terminateCollective, deleteCollective};
+module.exports = { importCollectives, exportCollectives, terminateCollective, deleteCollective};
