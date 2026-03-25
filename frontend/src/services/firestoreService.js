@@ -46,11 +46,6 @@ export const updateCollectiveMember = async (memberId, newData) => {
   return docRef.id;
 };
 
-export const deleteCollectiveMember = async (memberId) => {
-  const docRef = doc(db, COLLECTIVE_COLLECTION_NAME, memberId);
-  await deleteDoc(docRef);
-};
-
 export const addRegisteredMember = async (memberData) => {
   if (memberData.collectiveMemberId) {
     const collectiveRef = doc(db, COLLECTIVE_COLLECTION_NAME, memberData.collectiveMemberId);

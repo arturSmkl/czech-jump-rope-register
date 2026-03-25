@@ -2,7 +2,7 @@ import { getAuth } from "firebase/auth";
 
 const API_URL = "http://127.0.0.1:5001/czech-jump-rope-register-e8dea/europe-west3/api";
 
-export const uploadCollectives = async (data) => {
+const uploadData = async (fetchUrl, bodyObject) => {
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -11,13 +11,13 @@ export const uploadCollectives = async (data) => {
   // Get the Bearer Token for the middleware
   const token = await user.getIdToken();
 
-  const response = await fetch(`${API_URL}/collectives/import`, {
+  const response = await fetch(fetchUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     },
-    body: JSON.stringify({ data })
+    body: JSON.stringify(bodyObject)
   });
 
   const result = await response.json();
@@ -26,29 +26,23 @@ export const uploadCollectives = async (data) => {
   return result;
 };
 
+export const uploadCollectives = async (data) => {
+    try {
+      return await uploadData(`${API_URL}/collectives/import`, {data: data});
+    }
+    catch (err) {
+      throw err;
+    }
+};
+
 export const uploadRegistered = async (data, collectiveId) => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-
-  if (!user) throw new Error("You must be logged in.");
-
-  // Get the Bearer Token for the middleware
-  const token = await user.getIdToken();
-
-  const response = await fetch(`${API_URL}/registered/import`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    },
-    body: JSON.stringify({
+  try {
+    return await uploadData(`${API_URL}/collectives/import`, {
       data: data,
       collective_member_ref: collectiveId || null
-    })
-  });
-
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Import failed");
-
-  return result;
+    });
+  }
+  catch (err) {
+    throw err;
+  }
 };
