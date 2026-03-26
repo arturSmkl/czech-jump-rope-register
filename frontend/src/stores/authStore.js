@@ -4,6 +4,7 @@ import { auth } from '@/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 // Renamed the import to reflect that we are grabbing more than just the role now
 import { getUserAuthorization } from '@/services/authService';
+import router from '@/router';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
@@ -17,6 +18,8 @@ export const useAuthStore = defineStore('auth', () => {
   function init() {
     return new Promise((resolve) => {
       onAuthStateChanged(auth, async (u) => {
+        const wasInitialLoad = isInitialLoad.value;
+
         if (u) {
           user.value = u;
           displayName.value = u.displayName;
@@ -35,6 +38,16 @@ export const useAuthStore = defineStore('auth', () => {
         }
         isInitialLoad.value = false;
         resolve(u);
+
+        // After the initial load, navigate programmatically on auth state changes
+        if (!wasInitialLoad) {
+          const isFullyAuthorized = !!u && isWhitelisted.value && !!role.value;
+          if (isFullyAuthorized) {
+            router.push('/dashboard');
+          } else {
+            router.push('/login');
+          }
+        }
       });
     });
   }

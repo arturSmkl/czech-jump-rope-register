@@ -13,6 +13,14 @@
   justify-content: center;
 }
 
+.flex-row {
+  flex-direction: row;
+}
+
+.flex-column {
+  flex-direction: column;
+}
+
 /* Transitions for your <router-view> */
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s;
@@ -27,18 +35,33 @@ button {
   font-weight: 500;
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.btn-white {
+  background-color: var(--white-97);
+  color: var(--text-color);
+  transition: ease-in-out 0.2s;
+  border: 2px solid var(--text-color);
+}
+
+.btn-white:hover {
+  background-color: var(--white-95);
+}
+
+.btn-white:active {
+  transform: scale(0.98);
 }
 
 .btn-blue {
   background-color: var(--primary);
   color: var(--white-99);
+  transition: ease-in-out 0.2s;
 }
 
 .btn-blue:hover {
   background-color: var(--primary-dark);
-  transition: ease-in-out 0.2s;
 }
 
 .btn-blue:active {
