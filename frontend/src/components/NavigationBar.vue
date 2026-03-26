@@ -24,7 +24,7 @@
     align-items: center;
     height: 100px;
     padding: 20px 40px;
-    background-color: var(--bg-color);
+    background-color: var(--white-97);
     box-shadow: 0 4px 4px var(--shadow-color);
   }
   .nav-bar-item {
@@ -34,7 +34,7 @@
     align-items: center;
   }
   .logo {
-    background-image: url("public/logo.png");
+    background-image: url("/logo.png");
     background-repeat: no-repeat;
     background-size: cover;
     height: 60px;
@@ -42,7 +42,7 @@
     margin-right: 40px;
   }
   .title {
-    font-size: 28px;
+    font-size: 1.6rem;
     font-weight: 600;
   }
 </style>

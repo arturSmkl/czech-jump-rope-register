@@ -2,26 +2,35 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { auth } from '@/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { getUserRole } from '@/services/authService';
+// Renamed the import to reflect that we are grabbing more than just the role now
+import { getUserAuthorization } from '@/services/authService';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
+  const isWhitelisted = ref(false); // NEW: Tracks if the user's document exists
   const role = ref(null);
   const displayName = ref(null);
   const isInitialLoad = ref(true);
 
   const isAuthenticated = computed(() => !!user.value);
 
-  // This initializes the listener once
   function init() {
     return new Promise((resolve) => {
       onAuthStateChanged(auth, async (u) => {
         if (u) {
           user.value = u;
-          // Fetch role from your existing authService
-          role.value = await getUserRole(u.email);
+          displayName.value = u.displayName;
+
+          // Fetch both whitelist status and role from the service
+          const authData = await getUserAuthorization(u.email);
+          isWhitelisted.value = authData.isWhitelisted;
+          role.value = authData.role;
+
         } else {
+          // Reset all state on logout/no user
           user.value = null;
+          displayName.value = null;
+          isWhitelisted.value = false;
           role.value = null;
         }
         isInitialLoad.value = false;
@@ -36,7 +45,21 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     await signOut(auth);
+    // Explicitly clear state on logout to prevent flash of old data
+    user.value = null;
+    isWhitelisted.value = false;
+    role.value = null;
   }
 
-  return { user, role, isInitialLoad, isAuthenticated, init, login, logout };
+  return {
+    user,
+    isWhitelisted,
+    role,
+    displayName,
+    isInitialLoad,
+    isAuthenticated,
+    init,
+    login,
+    logout
+  };
 });

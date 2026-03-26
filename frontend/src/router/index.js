@@ -2,7 +2,20 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
-  { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { public: true } },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { public: true }
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('@/views/DashboardView.vue'),
+    // No public meta tag means it is protected by default
+  },
+  // Catch-all to redirect root to dashboard
+  { path: '/', redirect: '/dashboard' }
 ];
 
 const router = createRouter({
@@ -17,26 +30,34 @@ router.beforeEach(async (to, from, next) => {
   if (authStore.isInitialLoad) await authStore.init();
 
   const loggedIn = authStore.isAuthenticated;
-  const isWhitelisted = !!authStore.role;
 
-  // 1. If it's a public page (Login), let them through
-  if (to.meta.public) {
-    return loggedIn ? next('/') : next();
+  // Note: Your authStore needs to expose these two distinct states now
+  const isWhitelisted = authStore.isWhitelisted;
+  const hasRole = !!authStore.role;
+
+  // A user is only fully authorized if they pass all three checks
+  const isFullyAuthorized = loggedIn && isWhitelisted && hasRole;
+
+  // 1. Logic for the /login route
+  if (to.path === '/login') {
+    if (isFullyAuthorized) {
+      // Passes all conditions -> redirect to dashboard
+      return next('/dashboard');
+    }
+    // If not logged in, OR logged in but missing whitelist/role, let them stay on /login.
+    // The LoginView.vue component will read the store and display the correct messages.
+    return next();
   }
 
-  // 2. Not logged in? Go to login.
-  if (!loggedIn) return next('/login');
-
-  // 3. Logged in but not whitelisted (no role found in Firestore)?
-  if (!isWhitelisted) {
-    alert("You are not authorized to access this app.");
-    await authStore.logout();
+  // 2. Logic for protected routes (e.g., /dashboard)
+  if (!isFullyAuthorized) {
+    // If they try to access a protected route without passing all checks, send them to login
     return next('/login');
   }
 
-  // 4. Role-based check
+  // 3. Specific Role-based check (e.g., Admin only areas inside the app)
   if (to.meta.requiresAdmin && authStore.role !== 'admin') {
-    return next('/'); // Not an admin? Back to dashboard.
+    return next('/dashboard');
   }
 
   next();

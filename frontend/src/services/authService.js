@@ -31,14 +31,29 @@ export const getAllAuthorizedUsers = async () => {
   }));
 };
 
-export const getUserRole = async (email) => {
-  const docRef = doc(db, COLLECTION_NAME, email.toLowerCase().trim());
-  const snapshot = await getDoc(docRef);
+export const getUserAuthorization = async (email) => {
+  try {
+    const docRef = doc(db, 'authorized_users', email);
+    const docSnap = await getDoc(docRef);
 
-  if (snapshot.exists()) {
-    return snapshot.data().role;
-  } else {
-    return null; // Not in whitelist
+    if (docSnap.exists()) {
+      // The user is in the authorized_users collection (Whitelisted)
+      const data = docSnap.data();
+      return {
+        isWhitelisted: true,
+        role: data.role || null // Returns the role, or null if it's missing
+      };
+    } else {
+      // The user's email is NOT in the collection at all
+      return {
+        isWhitelisted: false,
+        role: null
+      };
+    }
+  } catch (error) {
+    console.error("Error fetching user authorization:", error);
+    // Fail closed: If Firestore fails (e.g., permissions issue), deny access
+    return { isWhitelisted: false, role: null };
   }
 };
 
