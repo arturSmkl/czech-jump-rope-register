@@ -1,6 +1,6 @@
 import { getAuth } from "firebase/auth";
 
-const API_URL = "http://127.0.0.1:5001/czech-jump-rope-register-e8dea/europe-west3/api";
+const API_URL = "/api";
 
 const uploadData = async (fetchUrl, bodyObject) => {
   const auth = getAuth();
