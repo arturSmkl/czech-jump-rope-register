@@ -112,17 +112,16 @@ const importRegistered = async (req, res, db) => {
         modifiedBy: userEmail
       };
 
+      opCount++;
+      ({ batch, count: opCount } = await commitIfFull(batch, opCount, db));
+
       if (isUpdate) {
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData, { merge: true });
       } else {
         formattedData.createdAt = dbNow;
         formattedData.createdBy = userEmail;
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData);
       }
-      
-      opCount++;
     }
 
     await batch.commit();
@@ -337,8 +336,9 @@ const transferRegisteredMembers = async (req, res, db) => {
     let operationCount = 0;
 
     for (const doc of athletes.docs) {
-      batch = await commitIfFull(batch, operationCount, db);
-      
+      operationCount++;
+      ({ batch, count: operationCount } = await commitIfFull(batch, operationCount, db));
+
       let updateData = { modifiedAt: now, modifiedBy: userEmail };
 
       if (action === "nullify") {
@@ -356,7 +356,6 @@ const transferRegisteredMembers = async (req, res, db) => {
       }
 
       batch.update(doc.ref, updateData);
-      operationCount++;
     }
 
     await batch.commit();

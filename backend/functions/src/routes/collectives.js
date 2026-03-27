@@ -82,17 +82,16 @@ const importCollectives = async (req, res, db) => {
         modifiedBy: userEmail
       };
 
+      opCount++;
+      ({ batch, opCount } = await commitIfFull(batch, opCount, db));
+
       if (isUpdate) {
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData, { merge: true });
       } else {
         formattedData.createdAt = dbNow;
         formattedData.createdBy = userEmail;
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData);
       }
-      
-      opCount++;
     }
 
     await batch.commit();
@@ -198,13 +197,13 @@ const terminateCollective = async (req, res, db) => {
       .get();
 
     for (const doc of athletes.docs) {
-      batch = await commitIfFull(batch, operationCount, db);
+      operationCount++;
+      ({ batch, count: operationCount } = await commitIfFull(batch, operationCount, db));
       batch.update(doc.ref, {
         membership_extinction_date: parsedTerminationDate || dbNow,
         modifiedAt: dbNow,
         modifiedBy: userEmail
       });
-      operationCount++;
     }
 
     await batch.commit();
@@ -251,13 +250,14 @@ const deleteCollective = async (req, res, db) => {
 
     // Add athletes to the deletion batch
     for (const doc of athletesSnap.docs) {
-      batch = await commitIfFull(batch, opCount, db);
-      batch.delete(doc.ref);
       opCount++;
+      ({ batch, count: opCount } = await commitIfFull(batch, opCount, db));
+      batch.delete(doc.ref);
     }
 
     // Add the collective itself to the batch
-    batch = await commitIfFull(batch, opCount, db);
+    opCount++;
+    ({ batch, count: opCount } = await commitIfFull(batch, opCount, db));
     batch.delete(collectiveRef);
 
     // Execute

@@ -58,13 +58,14 @@ const formatNSADate = (timestamp) => {
   return `${day}.${month}.${year}`;
 };
 
-// Commits the batch if the count exceeds Firestore's limit and returns a new batch
+// Commits the batch if the count reaches Firestore's limit and returns a new batch and reset count.
+// Returns { batch, count } — callers must use the returned count to track operations correctly.
 const commitIfFull = async (batch, count, db) => {
   if (count > 0 && count % 499 === 0) {
     await batch.commit();
-    return db.batch();
+    return { batch: db.batch(), count: 0 };
   }
-  return batch;
+  return { batch, count };
 };
 
 // Prevents CSV injection by prefixing suspicious characters with a single quote
