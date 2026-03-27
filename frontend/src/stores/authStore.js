@@ -39,13 +39,13 @@ export const useAuthStore = defineStore('auth', () => {
         isInitialLoad.value = false;
         resolve(u);
 
-        // After the initial load, navigate programmatically on auth state changes
+        // After the initial load, navigate programmatically on auth state changes.
+        // Use replace to avoid duplicate history entries and catch NavigationDuplicated errors.
         if (!wasInitialLoad) {
           const isFullyAuthorized = !!u && isWhitelisted.value && !!role.value;
-          if (isFullyAuthorized) {
-            router.push('/dashboard');
-          } else {
-            router.push('/login');
+          const target = isFullyAuthorized ? '/dashboard' : '/login';
+          if (router.currentRoute.value.path !== target) {
+            router.push(target).catch(() => {});
           }
         }
       });
