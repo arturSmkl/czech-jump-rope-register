@@ -37,7 +37,7 @@ export const uploadCollectives = async (data) => {
 
 export const uploadRegistered = async (data, collectiveId) => {
   try {
-    return await uploadData(`${API_URL}/collectives/import`, {
+    return await uploadData(`${API_URL}/registered/import`, {
       data: data,
       collective_member_ref: collectiveId || null
     });
