@@ -137,15 +137,16 @@ service cloud.firestore {
                isStringOrNull(data.collective_member_ref);
       }
 
-      // Validates that the referenced club exists. 
+      // Validates that the referenced club exists.
       // If the club is terminated, the member MUST also be terminated.
       // If the club is active, the member can be active OR terminated.
       function isValidCollectiveReference(refId, memberExtinctionDate) {
-        return refId == null || 
+        let collective = get(/databases/$(database)/documents/collective_members/$(refId));
+        return refId == null ||
                (
-                 exists(/databases/$(database)/documents/collective_members/$(refId)) &&
+                 collective != null &&
                  (
-                   get(/databases/$(database)/documents/collective_members/$(refId)).data.membership_extinction_date == null ||
+                   collective.data.membership_extinction_date == null ||
                    memberExtinctionDate != null
                  )
                );
