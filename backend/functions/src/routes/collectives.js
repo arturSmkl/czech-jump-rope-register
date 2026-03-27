@@ -245,6 +245,14 @@ const deleteCollective = async (req, res, db) => {
       .where("collective_member_ref", "==", collectiveId)
       .get();
 
+    // Guard: reject if any associated member is still active
+    const activeMembers = athletesSnap.docs.filter(doc => !doc.data().membership_extinction_date);
+    if (activeMembers.length > 0) {
+      return res.status(400).send({
+        error: `Cannot delete collective. ${activeMembers.length} associated member(s) are still active. Terminate them first.`
+      });
+    }
+
     let batch = db.batch();
     let opCount = 0;
 
