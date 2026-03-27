@@ -138,7 +138,6 @@ const exportCollectives = async (req, res, db) => {
     const csvContent = [ALLOWED_CSV_FIELDS.join(";"), ...rows].join("\n");
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.setHeader("Content-Disposition", "attachment; filename=active_collectives.csv");
     return res.status(200).send(csvContent);
 

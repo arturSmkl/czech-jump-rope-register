@@ -192,7 +192,6 @@ const exportRegistered = async (req, res, db) => {
     const dateStr = formatFirestoreDate({ toDate: () => new Date() });
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.setHeader("Content-Disposition", `attachment; filename=active_members_${safeClubName}_${dateStr}.csv`);
     
     return res.status(200).send(csvContent);
@@ -293,7 +292,6 @@ const exportRegisteredNsa = async (req, res, db) => {
     
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=NSA_export_${dateStr}.csv`);
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
     return res.status(200).send(csvContent);
 

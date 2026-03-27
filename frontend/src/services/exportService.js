@@ -50,38 +50,14 @@ const downloadExport = async (fetchUrl) => {
   return true;
 };
 
-export const downloadCollectiveExport = async () => {
-  try {
-    return await downloadExport(`${API_URL}/collectives/export`)
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadCollectiveExport = () =>
+  downloadExport(`${API_URL}/collectives/export`);
 
-export const downloadRegisteredExport = async (collectiveId) => {
-  try {
-    return await downloadExport(`${API_URL}/registered/export/${collectiveId}`);
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadRegisteredExport = (collectiveId) =>
+  downloadExport(`${API_URL}/registered/export/${collectiveId}`);
 
-export const downloadRegisteredExportNsa = async () => {
-  try {
-    return await downloadExport(`${API_URL}/registered/export-nsa`);
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadRegisteredExportNsa = () =>
+  downloadExport(`${API_URL}/registered/export-nsa`);
 
-export const downloadOverviewPdf = async () => {
-  try {
-    return await downloadExport(`${API_URL}/reports/overview`);
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadOverviewPdf = () =>
+  downloadExport(`${API_URL}/reports/overview`);

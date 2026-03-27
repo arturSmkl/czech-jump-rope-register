@@ -26,23 +26,11 @@ const uploadData = async (fetchUrl, bodyObject) => {
   return result;
 };
 
-export const uploadCollectives = async (data) => {
-    try {
-      return await uploadData(`${API_URL}/collectives/import`, {data: data});
-    }
-    catch (err) {
-      throw err;
-    }
-};
+export const uploadCollectives = (data) =>
+  uploadData(`${API_URL}/collectives/import`, { data });
 
-export const uploadRegistered = async (data, collectiveId) => {
-  try {
-    return await uploadData(`${API_URL}/registered/import`, {
-      data: data,
-      collective_member_ref: collectiveId || null
-    });
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const uploadRegistered = (data, collectiveId) =>
+  uploadData(`${API_URL}/registered/import`, {
+    data,
+    collective_member_ref: collectiveId || null
+  });
