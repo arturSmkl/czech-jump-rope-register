@@ -33,7 +33,7 @@ export const getAllAuthorizedUsers = async () => {
 
 export const getUserAuthorization = async (email) => {
   try {
-    const docRef = doc(db, 'authorized_users', email);
+    const docRef = doc(db, 'authorized_users', email.toLowerCase().trim());
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
