@@ -1,6 +1,21 @@
-name;company_id;street_and_number;zip_code;township;country;contact_person_first_name;contact_person_last_name;contact_person_email;contact_person_phone_number;membership_origin_date;membership_extinction_date;id
-Spartans Football Club;12345678;Main St 12;10000;Prague;Czech Republic;John;Doe;john.doe@spartans.com;+420123456789;01-01-2000;
-Blue Waves Swimming;87654321;Riverside 5;20000;Brno;Czech Republic;Jane;Smith;jane.smith@bluewaves.cz;+420987654321;01-01-2000;
-Golden Eagles Basketball;11223344;High Road 88;30000;Ostrava;Czech Republic;Michael;Jordan;m.j@eagles.com;;01-01-2000;
-Rapid Runners;44332211;Track Lane 1;40000;Pilsen;Czech Republic;Alice;Walker;alice@rapidrunners.org;+420555666777;01-01-2000;
-Zenith Yoga Collective;55667788;Peaceful Way 9;50000;Liberec;Czech Republic;Buda;Siddhartha;;+420111222333;01-01-2000;
+name;company_id;street;house_number;zip_code;township;country;contact_person_first_name;contact_person_last_name;contact_person_email;contact_person_phone_number;membership_origin_date;membership_extinction_date;id
+name1;CID-1001;street1;1;10001;township1;Germany;FirstName1;LastName1;contact1@example.com;+490000001;2024-01-01;;
+name2;CID-1002;street2;2;10002;township2;Germany;FirstName2;LastName2;contact2@example.com;+490000002;2024-01-01;;
+name3;CID-1003;street3;3;10003;township3;Germany;FirstName3;LastName3;contact3@example.com;+490000003;2024-01-01;;
+name4;CID-1004;street4;4;10004;township4;Germany;FirstName4;LastName4;contact4@example.com;+490000004;2024-01-01;;
+name5;CID-1005;street5;5;10005;township5;Germany;FirstName5;LastName5;contact5@example.com;+490000005;2024-01-01;;
+name6;CID-1006;street6;6;10006;township6;Germany;FirstName6;LastName6;contact6@example.com;+490000006;2024-01-01;;
+name7;CID-1007;street7;7;10007;township7;Germany;FirstName7;LastName7;contact7@example.com;+490000007;2024-01-01;;
+name8;CID-1008;street8;8;10008;township8;Germany;FirstName8;LastName8;contact8@example.com;+490000008;2024-01-01;;
+name9;CID-1009;street9;9;10009;township9;Germany;FirstName9;LastName9;contact9@example.com;+490000009;2024-01-01;;
+name10;CID-1010;street10;10;10010;township10;Germany;FirstName10;LastName10;contact10@example.com;+4900000010;2024-01-01;;
+name11;CID-1011;street11;11;10011;township11;Germany;FirstName11;LastName11;contact11@example.com;+4900000011;2024-01-01;;
+name12;CID-1012;street12;12;10012;township12;Germany;FirstName12;LastName12;contact12@example.com;+4900000012;2024-01-01;;
+name13;CID-1013;street13;13;10013;township13;Germany;FirstName13;LastName13;contact13@example.com;+4900000013;2024-01-01;;
+name14;CID-1014;street14;14;10014;township14;Germany;FirstName14;LastName14;contact14@example.com;+4900000014;2024-01-01;;
+name15;CID-1015;street15;15;10015;township15;Germany;FirstName15;LastName15;contact15@example.com;+4900000015;2024-01-01;;
+name16;CID-1016;street16;16;10016;township16;Germany;FirstName16;LastName16;contact16@example.com;+4900000016;2024-01-01;;
+name17;CID-1017;street17;17;10017;township17;Germany;FirstName17;LastName17;contact17@example.com;+4900000017;2024-01-01;;
+name18;CID-1018;street18;18;10018;township18;Germany;FirstName18;LastName18;contact18@example.com;+4900000018;2024-01-01;;
+name19;CID-1019;street19;19;10019;township19;Germany;FirstName19;LastName19;contact19@example.com;+4900000019;2024-01-01;;
+name20;CID-1020;street20;20;10020;township20;Germany;FirstName20;LastName20;contact20@example.com;+4900000020;2024-01-01;;

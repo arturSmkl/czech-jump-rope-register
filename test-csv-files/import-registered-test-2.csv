@@ -1,3 +1,11 @@
 first_name;last_name;birth_number;sex;date_of_birth;street;house_number;zip_code;township;country;nationality_code;membership_origin_date;membership_extinction_date;medical_examination_validity;competitions_last_12_months;athlete;referee;coach;id
-Hans;Müller;;M;30-06-1980;Berliner Str.;8;10115;Berlin;Germany;DEU;12-12-2023;;12-12-2024;0;ne;ne;ano;
-Jana;Veselá;9555254321;Z;;Slunná;77;46001;Liberec;Czechia;CZE;01-02-2023;31-12-2023;01-02-2024;8;ano;ne;ne;
+firstname30;lastname30;BN-100030;M;1995-05-15;street30;30;20030;township30;Germany;DE;2024-01-01;;2025-12-31;1;true;false;false;
+firstname31;lastname31;BN-100031;Z;1995-05-15;street31;31;20031;township31;Germany;DE;2024-01-01;;2025-12-31;2;true;false;false;
+firstname32;lastname32;BN-100032;M;1995-05-15;street32;32;20032;township32;Germany;DE;2024-01-01;;2025-12-31;4;true;false;false;
+firstname33;lastname33;BN-100033;Z;1995-05-15;street33;33;20033;township33;Germany;DE;2024-01-01;;2025-12-31;5;true;false;false;
+firstname34;lastname34;BN-100034;M;1995-05-15;street34;34;20034;township34;Germany;DE;2024-01-01;;2025-12-31;8;true;false;false;
+firstname35;lastname35;BN-100035;Z;1995-05-15;street35;35;20035;township35;Germany;DE;2024-01-01;;2025-12-31;7;true;false;false;
+firstname36;lastname36;BN-100036;M;1995-05-15;street36;36;20036;township36;Germany;DE;2024-01-01;;2025-12-31;6;true;false;false;
+firstname37;lastname37;BN-100037;Z;1995-05-15;street37;37;20037;township37;Germany;DE;2024-01-01;;2025-12-31;6;true;false;false;
+firstname38;lastname38;BN-100038;M;1995-05-15;street38;38;20038;township38;Germany;DE;2024-01-01;;2025-12-31;5;true;false;false;
+firstname39;lastname39;BN-100039;Z;1995-05-15;street39;39;20039;township39;Germany;DE;2024-01-01;;2025-12-31;7;true;false;false;

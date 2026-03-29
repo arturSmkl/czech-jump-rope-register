@@ -1,13 +1,17 @@
 <script setup>
 import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
 const authStore = useAuthStore();
+const route = useRoute();
 
 const isAuthorized = computed(() => authStore.isAuthenticated && authStore.isWhitelisted && !!authStore.role);
 const isAdmin = computed(() => authStore.role === 'admin');
 const isEditor = computed(() => authStore.role === 'editor');
 const canSeeAll = computed(() => isAdmin.value || isEditor.value);
+const isImportRoute = computed(() => route.path.startsWith('/import'));
+const isMembersRoute = computed(() => route.path.startsWith('/members'));
 
 const roleLabelMap = {
   admin: 'Admin',
@@ -26,15 +30,35 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
       </div>
     </div>
     <div class="nav-bar-item" v-if="isAuthorized">
-      <router-link class="link flex-center" to="/dashboard">
-        <div class="link-text">ČLENOVÉ</div>
-      </router-link>
+      <div class="link-dropdown" :class="{ 'active-parent': isMembersRoute }">
+        <div class="link flex-center link-members">
+          <div class="link-text">ČLENOVÉ</div>
+        </div>
+        <div class="dropdown-menu">
+          <router-link class="dropdown-item" to="/members/active">
+            Aktivní členové
+          </router-link>
+          <router-link class="dropdown-item" to="/members/terminated">
+            Zaniklí členové
+          </router-link>
+        </div>
+      </div>
       <router-link v-if="canSeeAll" class="link flex-center" to="/">
         <div class="link-text">PŘIDAT ČLENA</div>
       </router-link>
-      <router-link v-if="canSeeAll" class="link flex-center" to="/">
-        <div class="link-text">IMPORT</div>
-      </router-link>
+      <div v-if="canSeeAll" class="link-dropdown" :class="{ 'active-parent': isImportRoute }">
+        <div class="link flex-center link-import">
+          <div class="link-text">IMPORT</div>
+        </div>
+        <div class="dropdown-menu">
+          <router-link class="dropdown-item" to="/import/collectives">
+            Importovat Kolektivní Členy
+          </router-link>
+          <router-link class="dropdown-item" to="/import/registered">
+            Importovat Evidované Členy
+          </router-link>
+        </div>
+      </div>
       <router-link v-if="canSeeAll" class="link flex-center" to="/">
         <div class="link-text">EXPORT</div>
       </router-link>
@@ -56,6 +80,9 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
 
 <style scoped>
   .nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
@@ -86,8 +113,12 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
 
   .link {
     height: 100px;
-    padding: 0 2rem;
+    padding: 0 1rem;
     transition: ease-in-out 0.1s;
+  }
+
+  .link.router-link-exact-active {
+    background-color: var(--white-95);
   }
 
   .link:hover {
@@ -95,6 +126,59 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
   }
 
   .link:active {
+    background-color: var(--white-85);
+  }
+
+  .link-dropdown {
+    position: relative;
+    height: 100px;
+  }
+
+  .link-dropdown .link-import,
+  .link-dropdown .link-members {
+    height: 100%;
+    cursor: default;
+  }
+
+  .link-dropdown:hover .link-import,
+  .link-dropdown.active-parent .link-import,
+  .link-dropdown:hover .link-members,
+  .link-dropdown.active-parent .link-members {
+    background-color: var(--white-95);
+  }
+
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 260px;
+    background-color: var(--white-97);
+    box-shadow: 0 4px 8px var(--shadow-color);
+    border-radius: 0 0 6px 6px;
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .link-dropdown:hover .dropdown-menu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dropdown-item {
+    padding: 0.75rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-color);
+    transition: background-color 0.1s ease-in-out;
+    white-space: nowrap;
+  }
+
+  .dropdown-item:hover {
+    background-color: var(--white-95);
+  }
+
+  .dropdown-item:active {
     background-color: var(--white-85);
   }
 

@@ -1,6 +1,6 @@
 import { getAuth } from "firebase/auth";
 
-const API_URL = "http://127.0.0.1:5001/czech-jump-rope-register-e8dea/europe-west3/api";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const uploadData = async (fetchUrl, bodyObject) => {
   const auth = getAuth();
@@ -26,23 +26,11 @@ const uploadData = async (fetchUrl, bodyObject) => {
   return result;
 };
 
-export const uploadCollectives = async (data) => {
-    try {
-      return await uploadData(`${API_URL}/collectives/import`, {data: data});
-    }
-    catch (err) {
-      throw err;
-    }
-};
+export const uploadCollectives = async (data) =>
+  uploadData(`${API_URL}/collectives/import`, { data });
 
-export const uploadRegistered = async (data, collectiveId) => {
-  try {
-    return await uploadData(`${API_URL}/collectives/import`, {
-      data: data,
-      collective_member_ref: collectiveId || null
-    });
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const uploadRegistered = (data, collectiveId) =>
+  uploadData(`${API_URL}/registered/import`, {
+    data,
+    collective_member_ref: collectiveId || null
+  });

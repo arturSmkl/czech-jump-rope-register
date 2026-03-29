@@ -1,4 +1,4 @@
-import { db } from "@/firebase"; // import singletons
+import { db, auth } from "@/firebase"; // import singletons
 import {
   collection,
   doc,
@@ -8,14 +8,30 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where
+  where,
+  serverTimestamp
 } from "firebase/firestore";
 
 const COLLECTIVE_COLLECTION_NAME = "collective_members";
 const REGISTERED_COLLECTION_NAME = "registered_members";
 
+function getCurrentUserEmail() {
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    throw new Error("No authenticated user");
+  }
+  return user.email;
+}
+
 export const addCollectiveMember = async (memberData) => {
-  const docRef = await addDoc(collection(db, COLLECTIVE_COLLECTION_NAME), memberData);
+  const email = getCurrentUserEmail();
+  const docRef = await addDoc(collection(db, COLLECTIVE_COLLECTION_NAME), {
+    ...memberData,
+    createdAt: serverTimestamp(),
+    createdBy: email,
+    modifiedAt: serverTimestamp(),
+    modifiedBy: email,
+  });
   return docRef.id;
 };
 
@@ -41,8 +57,13 @@ export const getCollectiveMemberById = async (memberId) => {
 };
 
 export const updateCollectiveMember = async (memberId, newData) => {
+  const email = getCurrentUserEmail();
   const docRef = doc(db, COLLECTIVE_COLLECTION_NAME, memberId);
-  await updateDoc(docRef, newData);
+  await updateDoc(docRef, {
+    ...newData,
+    modifiedAt: serverTimestamp(),
+    modifiedBy: email,
+  });
   return docRef.id;
 };
 
@@ -56,7 +77,14 @@ export const addRegisteredMember = async (memberData) => {
     }
   }
 
-  const docRef = await addDoc(collection(db, REGISTERED_COLLECTION_NAME), memberData);
+  const email = getCurrentUserEmail();
+  const docRef = await addDoc(collection(db, REGISTERED_COLLECTION_NAME), {
+    ...memberData,
+    createdAt: serverTimestamp(),
+    createdBy: email,
+    modifiedAt: serverTimestamp(),
+    modifiedBy: email,
+  });
   return docRef.id;
 };
 
@@ -95,8 +123,13 @@ export const getRegisteredMembersByCollectiveId = async (collectiveMemberId) => 
 };
 
 export const updateRegisteredMember = async (memberId, newData) => {
+  const email = getCurrentUserEmail();
   const docRef = doc(db, REGISTERED_COLLECTION_NAME, memberId);
-  await updateDoc(docRef, newData);
+  await updateDoc(docRef, {
+    ...newData,
+    modifiedAt: serverTimestamp(),
+    modifiedBy: email,
+  });
 
   return docRef.id;
 };

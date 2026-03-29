@@ -17,7 +17,7 @@ const authStore = useAuthStore();
         Odhlásit se
       </button>
     </div>
-    <div v-else-if="!authStore.role">
+    <div v-else-if="!authStore.role" class="flex-center flex-column">
       <h2>
         Váš účet nemá žádnou roli. Kontaktujte admina pro udělení pravomocí.
       </h2>

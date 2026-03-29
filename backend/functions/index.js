@@ -21,13 +21,28 @@ admin.initializeApp();
 const db = admin.firestore();
 const app = express();
 
-// change for production to frontend URL
-app.use(cors({ 
-  origin: true, 
+const ALLOWED_ORIGINS = [
+  "https://czech-jump-rope-register-e8dea.web.app",
+  "https://czech-jump-rope-register-e8dea.firebaseapp.com",
+  "http://localhost:5000",
+  "http://localhost:5173",
+  "http://127.0.0.1:5000",
+  "http://127.0.0.1:5173"
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. curl, mobile apps)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ['GET', 'POST', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   // This allows your frontend to read the filename header
-  exposedHeaders: ['Content-Disposition'] 
+  exposedHeaders: ['Content-Disposition']
 }));
 app.use(express.json())
 

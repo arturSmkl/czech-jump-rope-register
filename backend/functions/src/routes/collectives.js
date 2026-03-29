@@ -2,7 +2,7 @@ const { FieldValue } = require("firebase-admin/firestore");
 const { parseDate, formatFirestoreDate, sanitizeForCsv, commitIfFull } = require("../middleware/utils.js");
 
 const ALLOWED_CSV_FIELDS = [
-  "name", "company_id", "street_and_number", "zip_code", "township", "country",
+  "name", "company_id", "street", "house_number", "zip_code", "township", "country",
   "contact_person_first_name", "contact_person_last_name", 
   "contact_person_email", "contact_person_phone_number",
   "membership_origin_date", "membership_extinction_date", "id"
@@ -65,9 +65,10 @@ const importCollectives = async (req, res, db) => {
         name: row.name || null,
         company_id: row.company_id || null,
         address: {
-          street_and_number: row.street_and_number || null,
-          zip_code: row.zip_code || null,
+          street: row.street || null,
+          house_number: row.house_number || null,
           township: row.township || null,
+          zip_code: row.zip_code || null,
           country: row.country || null
         },
         contact_person: {
@@ -82,17 +83,16 @@ const importCollectives = async (req, res, db) => {
         modifiedBy: userEmail
       };
 
+      opCount++;
+      ({ batch, opCount } = await commitIfFull(batch, opCount, db));
+
       if (isUpdate) {
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData, { merge: true });
       } else {
         formattedData.createdAt = dbNow;
         formattedData.createdBy = userEmail;
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData);
       }
-      
-      opCount++;
     }
 
     await batch.commit();
@@ -139,7 +139,6 @@ const exportCollectives = async (req, res, db) => {
     const csvContent = [ALLOWED_CSV_FIELDS.join(";"), ...rows].join("\n");
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.setHeader("Content-Disposition", "attachment; filename=active_collectives.csv");
     return res.status(200).send(csvContent);
 
@@ -198,13 +197,13 @@ const terminateCollective = async (req, res, db) => {
       .get();
 
     for (const doc of athletes.docs) {
-      batch = await commitIfFull(batch, operationCount, db);
+      operationCount++;
+      ({ batch, count: operationCount } = await commitIfFull(batch, operationCount, db));
       batch.update(doc.ref, {
         membership_extinction_date: parsedTerminationDate || dbNow,
         modifiedAt: dbNow,
         modifiedBy: userEmail
       });
-      operationCount++;
     }
 
     await batch.commit();
@@ -251,13 +250,14 @@ const deleteCollective = async (req, res, db) => {
 
     // Add athletes to the deletion batch
     for (const doc of athletesSnap.docs) {
-      batch = await commitIfFull(batch, opCount, db);
-      batch.delete(doc.ref);
       opCount++;
+      ({ batch, count: opCount } = await commitIfFull(batch, opCount, db));
+      batch.delete(doc.ref);
     }
 
     // Add the collective itself to the batch
-    batch = await commitIfFull(batch, opCount, db);
+    opCount++;
+    ({ batch, count: opCount } = await commitIfFull(batch, opCount, db));
     batch.delete(collectiveRef);
 
     // Execute

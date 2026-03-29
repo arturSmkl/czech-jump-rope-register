@@ -9,13 +9,32 @@ const routes = [
     meta: { public: true }
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('@/views/DashboardView.vue'),
-    // No public meta tag means it is protected by default
+    path: '/members/active',
+    name: 'MembersActive',
+    component: () => import('@/views/MembersView.vue'),
+    meta: { memberStatus: 'active' }
   },
-  // Catch-all to redirect root to dashboard
-  { path: '/', redirect: '/dashboard' }
+  {
+    path: '/members/terminated',
+    name: 'MembersTerminated',
+    component: () => import('@/views/MembersView.vue'),
+    meta: { memberStatus: 'terminated' }
+  },
+  {
+    path: '/import/collectives',
+    name: 'ImportCollectives',
+    component: () => import('@/views/ImportView.vue'),
+    meta: { importType: 'collectives' }
+  },
+  {
+    path: '/import/registered',
+    name: 'ImportRegistered',
+    component: () => import('@/views/ImportView.vue'),
+    meta: { importType: 'registered' }
+  },
+  // Catch-all to redirect root to members
+  { path: '/members', redirect: '/members/active' },
+  { path: '/', redirect: '/members/active' }
 ];
 
 const router = createRouter({
@@ -42,7 +61,7 @@ router.beforeEach(async (to, from, next) => {
   if (to.path === '/login') {
     if (isFullyAuthorized) {
       // Passes all conditions -> redirect to dashboard
-      return next('/dashboard');
+      return next('/members/active');
     }
     // If not logged in, OR logged in but missing whitelist/role, let them stay on /login.
     // The LoginView.vue component will read the store and display the correct messages.
@@ -57,7 +76,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 3. Specific Role-based check (e.g., Admin only areas inside the app)
   if (to.meta.requiresAdmin && authStore.role !== 'admin') {
-    return next('/dashboard');
+    return next('/members/active');
   }
 
   next();

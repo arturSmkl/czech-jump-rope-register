@@ -51,7 +51,7 @@ button {
 }
 
 .btn-white:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-blue {
@@ -65,5 +65,103 @@ button {
 }
 
 .btn-blue:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
+
+.btn-blue:disabled,
+.btn-white:disabled,
+.btn-red:disabled,
+.btn-green:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-red {
+  background-color: var(--red);
+  color: var(--white-99);
+  transition: ease-in-out 0.2s;
+}
+
+.btn-red:hover {
+  background-color: var(--red-dark);
+}
+
+.btn-red:active {
+  transform: scale(0.97);
+}
+
+.btn-green {
+  background-color: var(--green);
+  color: var(--white-99);
+  transition: ease-in-out 0.2s;
+}
+
+.btn-green:hover {
+  background-color: var(--green-dark);
+}
+
+.btn-green:active {
+  transform: scale(0.97);
+}
+
+/* Modal overlay + card */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  background: var(--white-99);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 2rem;
+  min-width: 380px;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-card h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+/* Search input */
+.search-input {
+  font-family: 'Albert Sans', 'Roboto', sans-serif;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--white-85);
+  border-radius: 6px;
+  background-color: var(--white-99);
+  color: var(--text-color);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus {
+  border-color: var(--primary);
+}
+
+.search-input::placeholder {
+  color: var(--white-65);
+}
+
+.gap-sm {
+  gap: 0.75rem;
+}
+
+.gap-md {
+  gap: 1.25rem;
+}
+

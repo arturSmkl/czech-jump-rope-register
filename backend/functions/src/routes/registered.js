@@ -112,17 +112,16 @@ const importRegistered = async (req, res, db) => {
         modifiedBy: userEmail
       };
 
+      opCount++;
+      ({ batch, count: opCount } = await commitIfFull(batch, opCount, db));
+
       if (isUpdate) {
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData, { merge: true });
       } else {
         formattedData.createdAt = dbNow;
         formattedData.createdBy = userEmail;
-        batch = await commitIfFull(batch, opCount, db);
         batch.set(docRef, formattedData);
       }
-      
-      opCount++;
     }
 
     await batch.commit();
@@ -167,14 +166,17 @@ const exportRegistered = async (req, res, db) => {
           data.birth_number,
           data.sex,
           formatFirestoreDate(data.date_of_birth),
-          data.address?.street_and_number,
+          data.address?.street,
+          data.address?.house_number,
           data.address?.zip_code,
           data.address?.township,
           data.address?.country,
+          data.nationality_code,
           formatFirestoreDate(data.membership_origin_date),
           formatFirestoreDate(data.membership_extinction_date),
           formatFirestoreDate(data.medical_examination_validity),
           data.competitions_last_12_months || 0,
+          data.athlete ? "ano" : "ne",
           data.referee ? "ano" : "ne",
           data.coach ? "ano" : "ne",
           doc.id
@@ -190,7 +192,6 @@ const exportRegistered = async (req, res, db) => {
     const dateStr = formatFirestoreDate({ toDate: () => new Date() });
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.setHeader("Content-Disposition", `attachment; filename=active_members_${safeClubName}_${dateStr}.csv`);
     
     return res.status(200).send(csvContent);
@@ -291,7 +292,6 @@ const exportRegisteredNsa = async (req, res, db) => {
     
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=NSA_export_${dateStr}.csv`);
-    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
     return res.status(200).send(csvContent);
 
@@ -337,8 +337,9 @@ const transferRegisteredMembers = async (req, res, db) => {
     let operationCount = 0;
 
     for (const doc of athletes.docs) {
-      batch = await commitIfFull(batch, operationCount, db);
-      
+      operationCount++;
+      ({ batch, count: operationCount } = await commitIfFull(batch, operationCount, db));
+
       let updateData = { modifiedAt: now, modifiedBy: userEmail };
 
       if (action === "nullify") {
@@ -356,7 +357,6 @@ const transferRegisteredMembers = async (req, res, db) => {
       }
 
       batch.update(doc.ref, updateData);
-      operationCount++;
     }
 
     await batch.commit();

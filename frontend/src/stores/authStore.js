@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { auth } from '@/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-// Renamed the import to reflect that we are grabbing more than just the role now
 import { getUserAuthorization } from '@/services/authService';
 import router from '@/router';
 
@@ -40,12 +39,12 @@ export const useAuthStore = defineStore('auth', () => {
         resolve(u);
 
         // After the initial load, navigate programmatically on auth state changes
+        // Use replace to avoid duplicate history entries and catch NavigationDuplicated errors.
         if (!wasInitialLoad) {
           const isFullyAuthorized = !!u && isWhitelisted.value && !!role.value;
-          if (isFullyAuthorized) {
-            router.push('/dashboard');
-          } else {
-            router.push('/login');
+          const target = isFullyAuthorized ? '/members/active' : '/login';
+          if (router.currentRoute.value.path !== target) {
+            router.push(target).catch(() => {});
           }
         }
       });

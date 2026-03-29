@@ -1,6 +1,6 @@
 import { getAuth } from "firebase/auth";
 
-const API_URL = "http://127.0.0.1:5001/czech-jump-rope-register-e8dea/europe-west3/api";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const downloadExport = async (fetchUrl) => {
   const auth = getAuth();
@@ -50,38 +50,14 @@ const downloadExport = async (fetchUrl) => {
   return true;
 };
 
-export const downloadCollectiveExport = async () => {
-  try {
-    return await downloadExport(`${API_URL}/collectives/export`)
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadCollectiveExport = async () =>
+  downloadExport(`${API_URL}/collectives/export`);
 
-export const downloadRegisteredExport = async (collectiveId) => {
-  try {
-    return await downloadExport(`${API_URL}/registered/export/${collectiveId}`);
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadRegisteredExport = async (collectiveId) =>
+  downloadExport(`${API_URL}/registered/export/${collectiveId}`);
 
-export const downloadRegisteredExportNsa = async () => {
-  try {
-    return await downloadExport(`${API_URL}/registered/export-nsa`);
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadRegisteredExportNsa = async () =>
+  downloadExport(`${API_URL}/registered/export-nsa`);
 
-export const downloadOverviewPdf = async () => {
-  try {
-    return await downloadExport(`${API_URL}/reports/overview`);
-  }
-  catch (err) {
-    throw err;
-  }
-};
+export const downloadOverviewPdf = async () =>
+  downloadExport(`${API_URL}/reports/overview`);
