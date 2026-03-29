@@ -2,17 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================================================================
-    // GLOBAL HELPER FUNCTIONS
-    // =========================================================================
-    
     function isAuthenticated() {
       return request.auth != null && request.auth.token.email != null && request.auth.token.email_verified == true;
     }
-    
+
     function getUserEmail() { return request.auth.token.email; }
     function getUserRole() { return get(/databases/$(database)/documents/authorized_users/$(getUserEmail())).data.role; }
-    
+
     function isAdmin() { return getUserRole() == 'admin'; }
     function isEditor() { return getUserRole() == 'editor'; }
     function isViewer() { return getUserRole() == 'viewer'; }
@@ -22,7 +18,7 @@ service cloud.firestore {
     function isNumberOrNull(val) { return val is number || val == null; }
     function isBoolOrNull(val) { return val is bool || val == null; }
     function isTimestampOrNull(val) { return val is timestamp || val == null; }
-    
+
     function isPastOrNowTimestampOrNull(val) {
       return val == null || (val is timestamp && val <= request.time);
     }
@@ -31,10 +27,24 @@ service cloud.firestore {
       return data.createdAt == request.time && data.createdBy == getUserEmail() &&
              data.modifiedAt == request.time && data.modifiedBy == getUserEmail();
     }
-    
+
     function isValidAuditOnUpdate(newData, oldData) {
       return newData.createdAt == oldData.createdAt && newData.createdBy == oldData.createdBy &&
              newData.modifiedAt == request.time && newData.modifiedBy == getUserEmail();
+    }
+
+    function isValidAddress(addr) {
+      let addressFields = ['street', 'house_number', 'zip_code', 'township', 'country'];
+      return addr == null || (
+        addr is map &&
+        addr.keys().hasAll(addressFields) &&
+        addr.keys().hasOnly(addressFields) &&
+        isStringOrNull(addr.street) &&
+        isStringOrNull(addr.house_number) &&
+        isStringOrNull(addr.zip_code) &&
+        isStringOrNull(addr.township) &&
+        isStringOrNull(addr.country)
+      );
     }
 
 
@@ -60,38 +70,54 @@ service cloud.firestore {
 
       function isValidCollectiveSchema(data) {
         let allowedFields = [
-          'name', 'company_id', 'street_and_number', 'zip_code', 'township', 'country',
-          'contact_person_first_name', 'contact_person_last_name', 'contact_person_email',
-          'contact_person_phone_number', 'membership_origin_date', 'membership_extinction_date',
+          'name', 'company_id', 'address', 'contact_person',
+          'membership_origin_date', 'membership_extinction_date',
           'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy'
         ];
         return data.keys().hasAll(allowedFields) && data.keys().hasOnly(allowedFields);
       }
 
+      function isValidContactPerson(cp) {
+        let cpFields = ['first_name', 'last_name', 'email', 'phone_number'];
+        return cp == null || (
+          cp is map &&
+          cp.keys().hasAll(cpFields) &&
+          cp.keys().hasOnly(cpFields) &&
+          isStringOrNull(cp.first_name) &&
+          isStringOrNull(cp.last_name) &&
+          isStringOrNull(cp.email) &&
+          isStringOrNull(cp.phone_number)
+        );
+      }
+
+      // NOTE: membership_extinction_date is intentionally NOT validated here.
+      // It references resource.data which is null on create, causing evaluation
+      // errors. The constraint is enforced directly in allow create / allow update below.
       function isValidCollectiveTypes(data) {
         return isStringOrNull(data.name) &&
                isStringOrNull(data.company_id) &&
-               isStringOrNull(data.street_and_number) &&
-               isStringOrNull(data.zip_code) &&
-               isStringOrNull(data.township) &&
-               isStringOrNull(data.country) &&
-               isStringOrNull(data.contact_person_first_name) &&
-               isStringOrNull(data.contact_person_last_name) &&
-               isStringOrNull(data.contact_person_email) &&
-               isStringOrNull(data.contact_person_phone_number) &&
+               isValidAddress(data.address) &&
+               isValidContactPerson(data.contact_person) &&
                isPastOrNowTimestampOrNull(data.membership_origin_date) &&
-               // Enforce that clients can ONLY set this to null. Backend will handle real dates.
-               data.membership_extinction_date == null;
+               isTimestampOrNull(data.membership_extinction_date);
       }
 
+      // New members must always start with no termination date.
       allow create: if isAuthenticated() && isEditorOrAdmin() &&
                     isValidCollectiveSchema(request.resource.data) &&
                     isValidCollectiveTypes(request.resource.data) &&
+                    request.resource.data.membership_extinction_date == null &&
                     isValidAuditOnCreate(request.resource.data);
 
+      // Frontend may set extinction_date to null (activate) or leave it unchanged.
+      // Cloud Functions sets real termination dates via Admin SDK (bypasses rules).
       allow update: if isAuthenticated() && isEditorOrAdmin() &&
                     isValidCollectiveSchema(request.resource.data) &&
                     isValidCollectiveTypes(request.resource.data) &&
+                    (
+                      request.resource.data.membership_extinction_date == null ||
+                      request.resource.data.membership_extinction_date == resource.data.membership_extinction_date
+                    ) &&
                     isValidAuditOnUpdate(request.resource.data, resource.data);
     }
 
@@ -105,11 +131,10 @@ service cloud.firestore {
 
       function isValidRegisteredSchema(data) {
         let allowedFields = [
-          'first_name', 'last_name', 'birth_number', 'sex', 'date_of_birth', 
-          'street', 'house_number', 'zip_code', 'township', 'country', 
-          'nationality_code', 'membership_origin_date', 'membership_extinction_date', 
-          'medical_examination_validity', 'competitions_last_12_months', 
-          'athlete', 'referee', 'coach', 'collective_member_ref', 
+          'first_name', 'last_name', 'birth_number', 'sex', 'date_of_birth',
+          'address', 'nationality_code', 'membership_origin_date', 'membership_extinction_date',
+          'medical_examination_validity', 'competitions_last_12_months',
+          'athlete', 'referee', 'coach', 'collective_member_ref',
           'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy'
         ];
         return data.keys().hasAll(allowedFields) && data.keys().hasOnly(allowedFields);
@@ -121,15 +146,11 @@ service cloud.firestore {
                isStringOrNull(data.birth_number) &&
                isStringOrNull(data.sex) &&
                isPastOrNowTimestampOrNull(data.date_of_birth) &&
-               isStringOrNull(data.street) &&
-               isStringOrNull(data.house_number) &&
-               isStringOrNull(data.zip_code) &&
-               isStringOrNull(data.township) &&
-               isStringOrNull(data.country) &&
+               isValidAddress(data.address) &&
                isStringOrNull(data.nationality_code) &&
                isPastOrNowTimestampOrNull(data.membership_origin_date) &&
-               isPastOrNowTimestampOrNull(data.membership_extinction_date) &&
-               isTimestampOrNull(data.medical_examination_validity) && 
+               isTimestampOrNull(data.membership_extinction_date) &&
+               isTimestampOrNull(data.medical_examination_validity) &&
                isNumberOrNull(data.competitions_last_12_months) &&
                isBoolOrNull(data.athlete) &&
                isBoolOrNull(data.referee) &&
@@ -137,16 +158,15 @@ service cloud.firestore {
                isStringOrNull(data.collective_member_ref);
       }
 
-      // Validates that the referenced club exists. 
-      // If the club is terminated, the member MUST also be terminated.
-      // If the club is active, the member can be active OR terminated.
+      // Single-function approach: exists() guards get() so .data is never
+      // accessed on a null result. This avoids Firestore's cross-function
+      // short-circuit quirk that caused the split-function approach to fail.
       function isValidCollectiveReference(refId, memberExtinctionDate) {
-        let collective = get(/databases/$(database)/documents/collective_members/$(refId));
         return refId == null ||
                (
-                 collective != null &&
+                 exists(/databases/$(database)/documents/collective_members/$(refId)) &&
                  (
-                   collective.data.membership_extinction_date == null ||
+                   get(/databases/$(database)/documents/collective_members/$(refId)).data.membership_extinction_date == null ||
                    memberExtinctionDate != null
                  )
                );

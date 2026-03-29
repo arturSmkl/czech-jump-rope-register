@@ -27,6 +27,7 @@ const loading = ref(false);
 
 const expandedCollectives = ref(new Set());
 const expandedRegistered = ref(new Set());
+const individualExpanded = ref(false);
 
 const searchQuery = ref('');
 const searchResults = ref(null); // null = no search active
@@ -47,6 +48,7 @@ const showConfirmModal = ref(false);
 const confirmMessage = ref('');
 const confirmAction = ref(null);
 const confirmLoading = ref(false);
+const confirmBtnClass = ref('btn-red');
 
 // --- Computed ---
 const isActive = computed(() => route.meta.memberStatus === 'active');
@@ -73,6 +75,28 @@ const filteredCollectives = computed(() => {
   return list;
 });
 
+const individualMembers = computed(() => {
+  let list = allRegistered.value.filter(rm => {
+    if (rm.collective_member_ref != null) return false;
+    if (isActive.value) {
+      return rm.membership_extinction_date == null;
+    } else {
+      return rm.membership_extinction_date != null;
+    }
+  });
+
+  if (searchResults.value && searchResults.value.matchingRegisteredIds) {
+    const ids = searchResults.value.matchingRegisteredIds;
+    list = list.filter(rm => ids.has(rm.id));
+  }
+
+  return list;
+});
+
+const hasAnyContent = computed(() => {
+  return filteredCollectives.value.length > 0 || individualMembers.value.length > 0;
+});
+
 function getRegisteredForCollective(collectiveId) {
   let list = allRegistered.value.filter(rm => rm.collective_member_ref === collectiveId);
 
@@ -89,9 +113,7 @@ function countRegisteredForCollective(collectiveId) {
 }
 
 function getTransferTargetCollectives(excludeId) {
-  return allCollectives.value.filter(cm =>
-    cm.membership_extinction_date == null && cm.id !== excludeId
-  );
+  return allCollectives.value.filter(cm => cm.id !== excludeId);
 }
 
 // --- Data fetching ---
@@ -116,6 +138,7 @@ onMounted(fetchData);
 watch(() => route.meta.memberStatus, () => {
   expandedCollectives.value = new Set();
   expandedRegistered.value = new Set();
+  individualExpanded.value = false;
   searchQuery.value = '';
   searchResults.value = null;
 });
@@ -180,6 +203,10 @@ function selectTransferTarget(cm) {
   showTransferPicker.value = false;
 }
 
+const transferTargetIsTerminated = computed(() => {
+  return transferTargetCollective.value && transferTargetCollective.value.membership_extinction_date != null;
+});
+
 async function confirmTransfer() {
   if (!transferTarget.value) return;
   transferLoading.value = true;
@@ -189,6 +216,15 @@ async function confirmTransfer() {
       transferAction.value,
       transferAction.value === 'transfer' ? transferTargetCollective.value?.id : undefined
     );
+    // If transferred to a terminated collective, terminate the moved registered members
+    if (transferAction.value === 'transfer' && transferTargetIsTerminated.value) {
+      const affected = allRegistered.value.filter(
+        rm => rm.collective_member_ref === transferTarget.value.id && rm.membership_extinction_date == null
+      );
+      await Promise.all(
+        affected.map(rm => updateRegisteredMember(rm.id, { membership_extinction_date: new Date() }))
+      );
+    }
     showTransferModal.value = false;
     await fetchData();
   } catch (err) {
@@ -200,7 +236,8 @@ async function confirmTransfer() {
 
 // --- Terminate / Delete collective ---
 function confirmTerminateCollective(collective) {
-  confirmMessage.value = `Opravdu chcete ukončit členství kolektivního člena „${collective.name}"?`;
+  confirmMessage.value = `Pokud ukončíte členství kolektivního člena, ke kterému jsou vázáni evidovaní členové, jeho evidovaní členové budou také terminováni. Opravdu chcete ukončit členství kolektivního člena „${collective.name}"?`;
+  confirmBtnClass.value = 'btn-red';
   confirmAction.value = async () => {
     confirmLoading.value = true;
     try {
@@ -217,7 +254,8 @@ function confirmTerminateCollective(collective) {
 }
 
 function confirmDeleteCollective(collective) {
-  confirmMessage.value = `Opravdu chcete smazat kolektivního člena „${collective.name}"? Tato akce je nevratná.`;
+  confirmMessage.value = `Pokud smažete kolektivního člena, ke kterému jsou vázáni evidovaní členové, jeho evidovaní členové budou také smazáni. Opravdu chcete smazat kolektivního člena „${collective.name}"? Tato akce je nevratná.`;
+  confirmBtnClass.value = 'btn-red';
   confirmAction.value = async () => {
     confirmLoading.value = true;
     try {
@@ -276,6 +314,7 @@ async function activateCollectiveAndRegistered() {
 // --- Terminate / Delete / Activate registered member ---
 function confirmTerminateRegistered(member) {
   confirmMessage.value = `Opravdu chcete ukončit členství evidovaného člena „${member.first_name} ${member.last_name}"?`;
+  confirmBtnClass.value = 'btn-red';
   confirmAction.value = async () => {
     confirmLoading.value = true;
     try {
@@ -295,6 +334,7 @@ function confirmTerminateRegistered(member) {
 
 function confirmDeleteRegistered(member) {
   confirmMessage.value = `Opravdu chcete smazat evidovaného člena „${member.first_name} ${member.last_name}"? Tato akce je nevratná.`;
+  confirmBtnClass.value = 'btn-red';
   confirmAction.value = async () => {
     confirmLoading.value = true;
     try {
@@ -311,11 +351,29 @@ function confirmDeleteRegistered(member) {
 }
 
 function confirmActivateRegistered(member) {
-  confirmMessage.value = `Opravdu chcete aktivovat evidovaného člena „${member.first_name} ${member.last_name}"?`;
+  const parentCollective = member.collective_member_ref
+    ? allCollectives.value.find(cm => cm.id === member.collective_member_ref)
+    : null;
+  const isParentTerminated = parentCollective && parentCollective.membership_extinction_date != null;
+
+  if (isParentTerminated) {
+    confirmMessage.value =
+      `Kolektivní člen „${parentCollective.name}" je zaniklý. ` +
+      `Aktivní evidovaný člen nemůže být přiřazen k zaniklému kolektivnímu členovi. ` +
+      `Příslušnost ke kolektivnímu členovi bude zrušena a evidovaný člen „${member.first_name} ${member.last_name}" bude aktivován jako individuální člen. Chcete pokračovat?`;
+  } else {
+    confirmMessage.value = `Opravdu chcete aktivovat evidovaného člena „${member.first_name} ${member.last_name}"?`;
+  }
+
+  confirmBtnClass.value = 'btn-green';
   confirmAction.value = async () => {
     confirmLoading.value = true;
     try {
-      await updateRegisteredMember(member.id, { membership_extinction_date: null });
+      const updates = { membership_extinction_date: null };
+      if (isParentTerminated) {
+        updates.collective_member_ref = null;
+      }
+      await updateRegisteredMember(member.id, updates);
       showConfirmModal.value = false;
       await fetchData();
     } catch (err) {
@@ -355,12 +413,109 @@ function confirmActivateRegistered(member) {
     <div v-if="loading" class="loading-text">Načítání…</div>
 
     <!-- Empty state -->
-    <div v-else-if="filteredCollectives.length === 0" class="empty-text">
+    <div v-else-if="!hasAnyContent" class="empty-text">
       {{ searchResults ? 'Žádné výsledky.' : 'Žádní členové k zobrazení.' }}
     </div>
 
-    <!-- Collective members list -->
+    <!-- Members list -->
     <div v-else class="collectives-list">
+
+      <!-- Individual members row (registered with no collective ref) -->
+      <div v-if="individualMembers.length > 0" class="expandable-row">
+        <div class="row-header" @click="individualExpanded = !individualExpanded">
+          <img
+            src="@/assets/icons/arrow.png"
+            class="arrow-icon"
+            :class="{ rotated: individualExpanded }"
+            alt="arrow"
+          />
+          <span class="row-name">Individuální členové</span>
+          <span class="row-count">{{ individualMembers.length }} evidovaných členů</span>
+        </div>
+
+        <div v-if="individualExpanded" class="row-detail">
+          <div class="registered-list" style="margin-top: 0;">
+            <div
+              v-for="rm in individualMembers"
+              :key="rm.id"
+              class="expandable-row nested"
+            >
+              <div class="row-header" @click="toggleRegistered(rm.id)">
+                <img
+                  src="@/assets/icons/arrow.png"
+                  class="arrow-icon small"
+                  :class="{ rotated: expandedRegistered.has(rm.id) }"
+                  alt="arrow"
+                />
+                <span class="row-name">{{ rm.first_name }} {{ rm.last_name }}</span>
+              </div>
+
+              <div v-if="expandedRegistered.has(rm.id)" class="row-detail nested-detail">
+                <div class="detail-content">
+                  <div class="detail-left">
+                    <div class="detail-grid">
+                      <span class="label">Rodné číslo:</span>
+                      <span>{{ rm.birth_number || '—' }}</span>
+                      <span class="label">Pohlaví:</span>
+                      <span>{{ rm.sex || '—' }}</span>
+                      <span class="label">Datum narození:</span>
+                      <span>{{ formatDate(rm.date_of_birth) }}</span>
+                      <span class="label">Národnost:</span>
+                      <span>{{ rm.nationality_code || '—' }}</span>
+                      <span class="label">Adresa:</span>
+                      <span>{{ formatAddress(rm.address) }}</span>
+                      <span class="label">Vznik členství:</span>
+                      <span>{{ formatDate(rm.membership_origin_date) }}</span>
+                      <span class="label" v-if="!isActive">Zánik členství:</span>
+                      <span v-if="!isActive">{{ formatDate(rm.membership_extinction_date) }}</span>
+                      <span class="label">Platnost lékařské prohlídky:</span>
+                      <span>{{ formatDate(rm.medical_examination_validity) }}</span>
+                      <span class="label">Soutěže (posl. 12 měs.):</span>
+                      <span>{{ rm.competitions_last_12_months ?? '—' }}</span>
+                      <span class="label">Závodník:</span>
+                      <span>{{ rm.athlete ? 'Ano' : 'Ne' }}</span>
+                      <span class="label">Rozhodčí:</span>
+                      <span>{{ rm.referee ? 'Ano' : 'Ne' }}</span>
+                      <span class="label">Trenér:</span>
+                      <span>{{ rm.coach ? 'Ano' : 'Ne' }}</span>
+                      <span class="label">Vytvořeno:</span>
+                      <span>{{ formatTimestamp(rm.createdAt) }} — {{ rm.createdBy || '—' }}</span>
+                      <span class="label">Upraveno:</span>
+                      <span>{{ formatTimestamp(rm.modifiedAt) }} — {{ rm.modifiedBy || '—' }}</span>
+                    </div>
+                  </div>
+
+                  <div v-if="canEdit" class="detail-actions">
+                    <button
+                      v-if="isActive"
+                      class="btn-red btn-sm"
+                      @click.stop="confirmTerminateRegistered(rm)"
+                    >
+                      Ukončit členství
+                    </button>
+                    <button
+                      v-else
+                      class="btn-red btn-sm"
+                      @click.stop="confirmDeleteRegistered(rm)"
+                    >
+                      Smazat
+                    </button>
+                    <button
+                      v-if="!isActive"
+                      class="btn-green btn-sm"
+                      @click.stop="confirmActivateRegistered(rm)"
+                    >
+                      Aktivovat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collective members list -->
       <div
         v-for="cm in filteredCollectives"
         :key="cm.id"
@@ -447,13 +602,14 @@ function confirmActivateRegistered(member) {
             </div>
           </div>
 
-          <!-- Registered members nested list -->
+           <!-- Registered members nested list -->
           <div class="registered-list">
             <h3 class="registered-heading">Evidovaní členové</h3>
             <div
               v-for="rm in getRegisteredForCollective(cm.id)"
               :key="rm.id"
               class="expandable-row nested"
+              :class="{ terminated: rm.membership_extinction_date != null }"
             >
               <div class="row-header" @click="toggleRegistered(rm.id)">
                 <img
@@ -481,8 +637,8 @@ function confirmActivateRegistered(member) {
                       <span>{{ formatAddress(rm.address) }}</span>
                       <span class="label">Vznik členství:</span>
                       <span>{{ formatDate(rm.membership_origin_date) }}</span>
-                      <span class="label" v-if="!isActive">Zánik členství:</span>
-                      <span v-if="!isActive">{{ formatDate(rm.membership_extinction_date) }}</span>
+                      <span class="label" v-if="!isActive || rm.membership_extinction_date != null">Zánik členství:</span>
+                      <span v-if="!isActive || rm.membership_extinction_date != null">{{ formatDate(rm.membership_extinction_date) }}</span>
                       <span class="label">Platnost lékařské prohlídky:</span>
                       <span>{{ formatDate(rm.medical_examination_validity) }}</span>
                       <span class="label">Soutěže (posl. 12 měs.):</span>
@@ -574,10 +730,15 @@ function confirmActivateRegistered(member) {
                 @click="selectTransferTarget(tc)"
               >
                 {{ tc.name }}
+                <span v-if="tc.membership_extinction_date != null" class="picker-option-note"> (zaniklý)</span>
               </div>
             </div>
           </div>
         </div>
+
+        <p v-if="transferAction === 'transfer' && transferTargetIsTerminated" class="transfer-warning">
+          Vybraný kolektivní člen je zaniklý. Převedení evidovaní členové budou také terminováni, protože aktivní evidovaný člen nemůže být přiřazen k zaniklému kolektivnímu členovi.
+        </p>
 
         <div class="modal-actions">
           <button class="btn-white" @click="showTransferModal = false">Zrušit</button>
@@ -627,7 +788,7 @@ function confirmActivateRegistered(member) {
         <div class="modal-actions">
           <button class="btn-white" @click="showConfirmModal = false">Zrušit</button>
           <button
-            class="btn-red"
+            :class="confirmBtnClass"
             :disabled="confirmLoading"
             @click="confirmAction"
           >
@@ -715,6 +876,10 @@ function confirmActivateRegistered(member) {
   background-color: var(--white-97);
   box-shadow: 2px 2px 4px var(--shadow-color);
   border-radius: 6px;
+}
+
+.expandable-row.nested.terminated {
+  background-color: var(--white-85);
 }
 
 .row-header {
@@ -929,6 +1094,17 @@ function confirmActivateRegistered(member) {
 
 .picker-option:hover {
   background-color: var(--white-95);
+}
+
+.picker-option-note {
+  color: var(--white-65);
+  font-size: 0.9rem;
+}
+
+.transfer-warning {
+  color: var(--red);
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 /* Collectives list */
