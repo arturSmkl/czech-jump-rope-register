@@ -14,6 +14,11 @@ const heading = computed(() =>
   isCollective.value ? 'Importovat Kolektivní Členy' : 'Importovat Evidované Členy'
 );
 
+const allowedHeadersDisplay = computed(() => {
+  const headers = isCollective.value ? COLLECTIVE_HEADERS : REGISTERED_HEADERS;
+  return headers.join(';');
+});
+
 const COLLECTIVE_HEADERS = [
   'name', 'company_id', 'street', 'house_number', 'zip_code', 'township',
   'country', 'contact_person_first_name', 'contact_person_last_name',
@@ -177,6 +182,39 @@ function clearCollective() {
   <div class="import-view">
     <h1 class="import-heading">{{ heading }}</h1>
 
+    <!-- Info section -->
+    <div class="import-info">
+      <p>
+        CSV soubor musí používat <strong>středník (;)</strong> jako oddělovač sloupců.
+        První řádek musí obsahovat hlavičky sloupců.
+      </p>
+
+      <div class="info-block">
+        <h3>Povolené sloupce</h3>
+        <code class="header-list">{{ allowedHeadersDisplay }}</code>
+      </div>
+
+      <div class="info-block">
+        <h3>Formáty hodnot</h3>
+        <ul>
+          <li><strong>Datumy</strong> — formát <code>DD-MM-RRRR</code> se začínajícími nulami, např. <code>20-03-2026</code></li>
+          <li v-if="!isCollective"><strong>Pohlaví (sex)</strong> — <code>M</code> nebo <code>Z</code></li>
+          <li v-if="!isCollective"><strong>Boolean hodnoty</strong> (athlete, referee, coach) — <code>ano</code> nebo <code>ne</code></li>
+          <li v-if="!isCollective"><strong>Čísla</strong> (competitions_last_12_months) — celé číslo, např. <code>5</code></li>
+          <li><strong>Prázdné hodnoty</strong> jsou povolené</li>
+        </ul>
+      </div>
+
+      <div class="info-block">
+        <h3>Logika aktualizace (upsert)</h3>
+        <p>
+          Pokud řádek obsahuje sloupec <code>id</code> s hodnotou existujícího člena,
+          tento člen bude <strong>aktualizován</strong>. Pokud je <code>id</code> prázdné,
+          bude vytvořen <strong>nový</strong> člen.
+        </p>
+      </div>
+    </div>
+
     <!-- Collective member reference picker (only for registered imports) -->
     <div v-if="!isCollective" class="collective-picker">
       <label class="picker-label">Příslušnost ke kolektivnímu členovi</label>
@@ -254,6 +292,53 @@ function clearCollective() {
 .import-heading {
   font-size: 1.6rem;
   font-weight: 700;
+}
+
+/* Info section */
+.import-info {
+  background-color: var(--white-99);
+  border-radius: 8px;
+  box-shadow: 2px 2px 4px var(--shadow-color);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.import-info p {
+  margin: 0;
+}
+
+.info-block h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.info-block ul {
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.header-list {
+  display: block;
+  background-color: var(--white-95);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.import-info code:not(.header-list) {
+  background-color: var(--white-95);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.88rem;
 }
 
 /* Actions row */

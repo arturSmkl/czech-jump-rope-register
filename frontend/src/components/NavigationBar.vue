@@ -2,6 +2,12 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+import { errorStore } from '@/stores/errorStore';
+import {
+  downloadCollectiveExport,
+  downloadRegisteredExportNsa,
+  downloadOverviewPdf
+} from '@/services/exportService';
 
 const authStore = useAuthStore();
 const route = useRoute();
@@ -12,6 +18,7 @@ const isEditor = computed(() => authStore.role === 'editor');
 const canSeeAll = computed(() => isAdmin.value || isEditor.value);
 const isImportRoute = computed(() => route.path.startsWith('/import'));
 const isMembersRoute = computed(() => route.path.startsWith('/members'));
+const isAddRoute = computed(() => route.path.startsWith('/add'));
 
 const roleLabelMap = {
   admin: 'Admin',
@@ -19,6 +26,14 @@ const roleLabelMap = {
   viewer: 'Čtenář',
 };
 const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role);
+
+async function handleExport(fn) {
+  try {
+    await fn();
+  } catch (err) {
+    errorStore.setError('Export se nezdařil: ' + err.message, 0);
+  }
+}
 </script>
 
 <template>
@@ -43,9 +58,19 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
           </router-link>
         </div>
       </div>
-      <router-link v-if="canSeeAll" class="link flex-center" to="/">
-        <div class="link-text">PŘIDAT ČLENA</div>
-      </router-link>
+      <div v-if="canSeeAll" class="link-dropdown" :class="{ 'active-parent': isAddRoute }">
+        <div class="link flex-center link-add">
+          <div class="link-text">PŘIDAT ČLENA</div>
+        </div>
+        <div class="dropdown-menu">
+          <router-link class="dropdown-item" to="/add/collective">
+            Kolektivní člen
+          </router-link>
+          <router-link class="dropdown-item" to="/add/registered">
+            Evidovaný člen
+          </router-link>
+        </div>
+      </div>
       <div v-if="canSeeAll" class="link-dropdown" :class="{ 'active-parent': isImportRoute }">
         <div class="link flex-center link-import">
           <div class="link-text">IMPORT</div>
@@ -59,10 +84,23 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
           </router-link>
         </div>
       </div>
-      <router-link v-if="canSeeAll" class="link flex-center" to="/">
-        <div class="link-text">EXPORT</div>
-      </router-link>
-      <router-link v-if="isAdmin" class="link flex-center" to="/">
+      <div v-if="canSeeAll" class="link-dropdown">
+        <div class="link flex-center link-export">
+          <div class="link-text">EXPORT</div>
+        </div>
+        <div class="dropdown-menu">
+          <div class="dropdown-item" @click="handleExport(downloadCollectiveExport)">
+            Exportovat kolektivní členy
+          </div>
+          <div class="dropdown-item" @click="handleExport(downloadRegisteredExportNsa)">
+            Exportovat pro rejstřík NSA
+          </div>
+          <div class="dropdown-item" @click="handleExport(downloadOverviewPdf)">
+            Přehled základny (PDF)
+          </div>
+        </div>
+      </div>
+      <router-link v-if="isAdmin" class="link flex-center" to="/admin">
         <div class="link-text">ADMIN PANEL</div>
       </router-link>
 
@@ -135,7 +173,9 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
   }
 
   .link-dropdown .link-import,
-  .link-dropdown .link-members {
+  .link-dropdown .link-members,
+  .link-dropdown .link-add,
+  .link-dropdown .link-export {
     height: 100%;
     cursor: default;
   }
@@ -143,7 +183,10 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
   .link-dropdown:hover .link-import,
   .link-dropdown.active-parent .link-import,
   .link-dropdown:hover .link-members,
-  .link-dropdown.active-parent .link-members {
+  .link-dropdown.active-parent .link-members,
+  .link-dropdown:hover .link-add,
+  .link-dropdown.active-parent .link-add,
+  .link-dropdown:hover .link-export {
     background-color: var(--white-95);
   }
 
@@ -172,6 +215,7 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
     color: var(--text-color);
     transition: background-color 0.1s ease-in-out;
     white-space: nowrap;
+    cursor: pointer;
   }
 
   .dropdown-item:hover {
@@ -193,6 +237,7 @@ const roleLabel = computed(() => roleLabelMap[authStore.role] || authStore.role)
     flex-direction: row;
     align-items: center;
     gap: 1.5rem;
+    margin-left: 0.5rem;
   }
 
   .profile-block {

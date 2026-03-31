@@ -121,7 +121,8 @@ const exportCollectives = async (req, res, db) => {
         const values = [
           data.name,
           data.company_id,
-          data.address?.street_and_number,
+          data.address?.street,
+          data.address?.house_number,
           data.address?.zip_code,
           data.address?.township,
           data.address?.country,
@@ -138,8 +139,10 @@ const exportCollectives = async (req, res, db) => {
 
     const csvContent = [ALLOWED_CSV_FIELDS.join(";"), ...rows].join("\n");
 
+    const dateStr = formatFirestoreDate({ toDate: () => new Date() });
+
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=active_collectives.csv");
+    res.setHeader("Content-Disposition", `attachment; filename=aktivni_kolektivni_clenove_${dateStr}.csv`);
     return res.status(200).send(csvContent);
 
   } catch (error) {

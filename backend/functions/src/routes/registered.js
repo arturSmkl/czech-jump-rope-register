@@ -192,7 +192,7 @@ const exportRegistered = async (req, res, db) => {
     const dateStr = formatFirestoreDate({ toDate: () => new Date() });
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", `attachment; filename=active_members_${safeClubName}_${dateStr}.csv`);
+    res.setHeader("Content-Disposition", `attachment; filename=aktivni_evidovani_clenove_${safeClubName}_${dateStr}.csv`);
     
     return res.status(200).send(csvContent);
 
@@ -246,7 +246,7 @@ const exportRegisteredNsa = async (req, res, db) => {
           m.last_name,                                       // [PRIJMENI]
           "",                                                // [TITUL_PRED]
           "",                                                // [TITUL_ZA]
-          isCze ? m.birth_number : "",                       // [RODNE_CISLO]
+          isCze ? (m.birth_number || "").replace("/", "") : "", // [RODNE_CISLO]
           m.nationality_code,                                // [OBCANSTVI]
           !isCze ? formatNSADate(m.date_of_birth) : "",      // [DATUM_NAROZENI]
           m.sex,                                             // [POHLAVI]

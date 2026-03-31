@@ -99,24 +99,24 @@ service cloud.firestore {
                isValidAddress(data.address) &&
                isValidContactPerson(data.contact_person) &&
                isPastOrNowTimestampOrNull(data.membership_origin_date) &&
-               isTimestampOrNull(data.membership_extinction_date);
+               isPastOrNowTimestampOrNull(data.membership_extinction_date);
       }
 
-      // New members must always start with no termination date.
+      // Members may be created already terminated (back-dated import), but not with a future date.
       allow create: if isAuthenticated() && isEditorOrAdmin() &&
                     isValidCollectiveSchema(request.resource.data) &&
                     isValidCollectiveTypes(request.resource.data) &&
-                    request.resource.data.membership_extinction_date == null &&
                     isValidAuditOnCreate(request.resource.data);
 
-      // Frontend may set extinction_date to null (activate) or leave it unchanged.
-      // Cloud Functions sets real termination dates via Admin SDK (bypasses rules).
+      // Frontend cannot transition a member from active (null) to terminated (date).
+      // Reactivation (date → null) and modifying an existing termination date are allowed.
+      // Initial termination (null → date) is done exclusively via the termination endpoint (Admin SDK).
       allow update: if isAuthenticated() && isEditorOrAdmin() &&
                     isValidCollectiveSchema(request.resource.data) &&
                     isValidCollectiveTypes(request.resource.data) &&
                     (
-                      request.resource.data.membership_extinction_date == null ||
-                      request.resource.data.membership_extinction_date == resource.data.membership_extinction_date
+                      resource.data.membership_extinction_date != null ||
+                      request.resource.data.membership_extinction_date == null
                     ) &&
                     isValidAuditOnUpdate(request.resource.data, resource.data);
     }

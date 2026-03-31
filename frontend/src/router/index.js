@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
+// Role hierarchy: higher number = more permissions
+const ROLE_LEVEL = { viewer: 1, editor: 2, admin: 3 };
+
 const routes = [
   {
     path: '/login',
@@ -12,25 +15,55 @@ const routes = [
     path: '/members/active',
     name: 'MembersActive',
     component: () => import('@/views/MembersView.vue'),
-    meta: { memberStatus: 'active' }
+    meta: { memberStatus: 'active', minRole: 'viewer' }
   },
   {
     path: '/members/terminated',
     name: 'MembersTerminated',
     component: () => import('@/views/MembersView.vue'),
-    meta: { memberStatus: 'terminated' }
+    meta: { memberStatus: 'terminated', minRole: 'viewer' }
   },
   {
     path: '/import/collectives',
     name: 'ImportCollectives',
     component: () => import('@/views/ImportView.vue'),
-    meta: { importType: 'collectives' }
+    meta: { importType: 'collectives', minRole: 'editor' }
   },
   {
     path: '/import/registered',
     name: 'ImportRegistered',
     component: () => import('@/views/ImportView.vue'),
-    meta: { importType: 'registered' }
+    meta: { importType: 'registered', minRole: 'editor' }
+  },
+  {
+    path: '/add/collective',
+    name: 'AddCollective',
+    component: () => import('@/views/CollectiveMemberFormView.vue'),
+    meta: { minRole: 'editor' }
+  },
+  {
+    path: '/add/registered',
+    name: 'AddRegistered',
+    component: () => import('@/views/RegisteredMemberFormView.vue'),
+    meta: { minRole: 'editor' }
+  },
+  {
+    path: '/edit/collective/:id',
+    name: 'EditCollective',
+    component: () => import('@/views/CollectiveMemberFormView.vue'),
+    meta: { minRole: 'editor' }
+  },
+  {
+    path: '/edit/registered/:id',
+    name: 'EditRegistered',
+    component: () => import('@/views/RegisteredMemberFormView.vue'),
+    meta: { minRole: 'editor' }
+  },
+  {
+    path: '/admin',
+    name: 'AdminPanel',
+    component: () => import('@/views/AdminPanelView.vue'),
+    meta: { minRole: 'admin' }
   },
   // Catch-all to redirect root to members
   { path: '/members', redirect: '/members/active' },
@@ -49,8 +82,6 @@ router.beforeEach(async (to, from, next) => {
   if (authStore.isInitialLoad) await authStore.init();
 
   const loggedIn = authStore.isAuthenticated;
-
-  // Note: Your authStore needs to expose these two distinct states now
   const isWhitelisted = authStore.isWhitelisted;
   const hasRole = !!authStore.role;
 
@@ -60,23 +91,24 @@ router.beforeEach(async (to, from, next) => {
   // 1. Logic for the /login route
   if (to.path === '/login') {
     if (isFullyAuthorized) {
-      // Passes all conditions -> redirect to dashboard
       return next('/members/active');
     }
-    // If not logged in, OR logged in but missing whitelist/role, let them stay on /login.
-    // The LoginView.vue component will read the store and display the correct messages.
     return next();
   }
 
-  // 2. Logic for protected routes (e.g., /dashboard)
+  // 2. If not fully authorized, redirect to login
   if (!isFullyAuthorized) {
-    // If they try to access a protected route without passing all checks, send them to login
     return next('/login');
   }
 
-  // 3. Specific Role-based check (e.g., Admin only areas inside the app)
-  if (to.meta.requiresAdmin && authStore.role !== 'admin') {
-    return next('/members/active');
+  // 3. Role-based access check
+  const requiredRole = to.meta.minRole;
+  if (requiredRole) {
+    const userLevel = ROLE_LEVEL[authStore.role] || 0;
+    const requiredLevel = ROLE_LEVEL[requiredRole] || 0;
+    if (userLevel < requiredLevel) {
+      return next('/members/active');
+    }
   }
 
   next();

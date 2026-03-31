@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { errorStore } from '@/stores/errorStore';
 import {
@@ -16,8 +16,10 @@ import {
   deleteCollective
 } from '@/services/collectiveService';
 import { searchMembers } from '@/services/searchService';
+import { downloadRegisteredExport } from '@/services/exportService';
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 
 // --- State ---
@@ -72,7 +74,7 @@ const filteredCollectives = computed(() => {
     list = list.filter(cm => ids.has(cm.id));
   }
 
-  return list;
+  return list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'cs'));
 });
 
 const individualMembers = computed(() => {
@@ -90,7 +92,11 @@ const individualMembers = computed(() => {
     list = list.filter(rm => ids.has(rm.id));
   }
 
-  return list;
+  return list.sort((a, b) => {
+    const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim();
+    const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim();
+    return nameA.localeCompare(nameB, 'cs');
+  });
 });
 
 const hasAnyContent = computed(() => {
@@ -105,7 +111,11 @@ function getRegisteredForCollective(collectiveId) {
     list = list.filter(rm => ids.has(rm.id));
   }
 
-  return list;
+  return list.sort((a, b) => {
+    const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim();
+    const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim();
+    return nameA.localeCompare(nameB, 'cs');
+  });
 }
 
 function countRegisteredForCollective(collectiveId) {
@@ -187,6 +197,12 @@ function formatAddress(addr) {
   if (!addr) return '—';
   const parts = [addr.street, addr.house_number, addr.zip_code, addr.township, addr.country].filter(Boolean);
   return parts.join(', ') || '—';
+}
+
+function formatMemberCount(n) {
+  if (n === 1) return `${n} evidovaný člen`;
+  if (n >= 2 && n <= 4) return `${n} evidovaní členové`;
+  return `${n} evidovaných členů`;
 }
 
 // --- Transfer Modal ---
@@ -312,6 +328,15 @@ async function activateCollectiveAndRegistered() {
 }
 
 // --- Terminate / Delete / Activate registered member ---
+
+// --- Export ---
+async function exportCollective(collective) {
+  try {
+    await downloadRegisteredExport(collective.id);
+  } catch (err) {
+    errorStore.setError('Export se nezdařil: ' + err.message, 0);
+  }
+}
 function confirmTerminateRegistered(member) {
   confirmMessage.value = `Opravdu chcete ukončit členství evidovaného člena „${member.first_name} ${member.last_name}"?`;
   confirmBtnClass.value = 'btn-red';
@@ -430,7 +455,7 @@ function confirmActivateRegistered(member) {
             alt="arrow"
           />
           <span class="row-name">Individuální členové</span>
-          <span class="row-count">{{ individualMembers.length }} evidovaných členů</span>
+          <span class="row-count">{{ formatMemberCount(individualMembers.length) }}</span>
         </div>
 
         <div v-if="individualExpanded" class="row-detail">
@@ -487,6 +512,12 @@ function confirmActivateRegistered(member) {
 
                   <div v-if="canEdit" class="detail-actions">
                     <button
+                      class="btn-white btn-sm"
+                      @click.stop="router.push(`/edit/registered/${rm.id}`)"
+                    >
+                      Upravit
+                    </button>
+                    <button
                       v-if="isActive"
                       class="btn-red btn-sm"
                       @click.stop="confirmTerminateRegistered(rm)"
@@ -530,7 +561,7 @@ function confirmActivateRegistered(member) {
             alt="arrow"
           />
           <span class="row-name">{{ cm.name }}</span>
-          <span class="row-count">{{ countRegisteredForCollective(cm.id) }} evidovaných členů</span>
+          <span class="row-count">{{ formatMemberCount(countRegisteredForCollective(cm.id)) }}</span>
         </div>
 
         <!-- Collective expanded detail -->
@@ -575,8 +606,14 @@ function confirmActivateRegistered(member) {
 
             <!-- Action buttons -->
             <div v-if="canEdit" class="detail-actions">
+              <button class="btn-white btn-sm" @click.stop="router.push(`/edit/collective/${cm.id}`)">
+                Upravit
+              </button>
               <button class="btn-white btn-sm" @click.stop="openTransferModal(cm)">
                 Převést členy
+              </button>
+              <button v-if="isActive" class="btn-white btn-sm" @click.stop="exportCollective(cm)">
+                Exportovat členy
               </button>
               <button
                 v-if="isActive"
@@ -658,14 +695,27 @@ function confirmActivateRegistered(member) {
 
                   <div v-if="canEdit" class="detail-actions">
                     <button
-                      v-if="isActive"
+                      class="btn-white btn-sm"
+                      @click.stop="router.push(`/edit/registered/${rm.id}`)"
+                    >
+                      Upravit
+                    </button>
+                    <button
+                      v-if="isActive && rm.membership_extinction_date == null"
                       class="btn-red btn-sm"
                       @click.stop="confirmTerminateRegistered(rm)"
                     >
                       Ukončit členství
                     </button>
                     <button
-                      v-else
+                      v-if="isActive && rm.membership_extinction_date != null"
+                      class="btn-green btn-sm"
+                      @click.stop="confirmActivateRegistered(rm)"
+                    >
+                      Aktivovat
+                    </button>
+                    <button
+                      v-if="!isActive"
                       class="btn-red btn-sm"
                       @click.stop="confirmDeleteRegistered(rm)"
                     >
@@ -1021,11 +1071,6 @@ function confirmActivateRegistered(member) {
   height: 16px;
 }
 
-.modal-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-}
 
 /* Transfer picker */
 .transfer-picker {
