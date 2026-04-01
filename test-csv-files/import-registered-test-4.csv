@@ -1,0 +1,6 @@
+first_name;last_name;birth_number;sex;date_of_birth;street;house_number;zip_code;township;country;nationality_code;membership_origin_date;membership_extinction_date;medical_examination_validity;competitions_last_12_months;athlete;referee;coach;id
+firstname40;lastname40;BN-100040;M;15-05-1995;street40;40;20040;township40;Germany;DE;01-01-2024;;31-12-2025;0;ano;ne;ne;
+firstname41;lastname41;010101/1234;Z;15-05-1995;street41;41;20041;township41;Germany;DE;01-01-2024;;31-12-2025;2;ano;dfgb;54;
+firstname40;lastname40;141499/1234;M;15-05-1995;street40;40;20040;township40;Germany;DE;01-01-2024;;31-12-2025;0;ano;ne;ne;
+firstname40;lastname40;1414991234;M;15-05-1995;street40;40;20040;township40;Germany;DE;01-01-2024;;31-12-2025;0;ano;ne;ne;
+firstname40;lastname40;0404991234;M;15-05-1995;street40;40;20040;township40;Germany;DE;01-01-2024;;31-12-2025;0;ano;ne;ne;

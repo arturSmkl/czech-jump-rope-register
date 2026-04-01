@@ -14,6 +14,9 @@
   --red-dark: #b02828;
   --green: #28a745;
   --green-dark: #1e7e34;
+  --warning: #e6a817;
+  --warning-bg: #fff8e1;
+  --warning-light: #fff3cd;
 }
 *,
 *::before,

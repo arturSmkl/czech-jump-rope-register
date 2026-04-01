@@ -17,6 +17,11 @@ import {
 } from '@/services/collectiveService';
 import { searchMembers } from '@/services/searchService';
 import { downloadRegisteredExport } from '@/services/exportService';
+import {
+  validateCollectiveMember,
+  validateRegisteredMember
+} from '@/services/validationService';
+import { validateAddress } from '@/services/addressValidationService';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,6 +38,10 @@ const individualExpanded = ref(false);
 
 const searchQuery = ref('');
 const searchResults = ref(null); // null = no search active
+
+// Validation
+const addressValidationResults = ref({}); // memberId -> true/false/null
+const addressValidationPending = ref(new Set()); // memberIds currently being validated
 
 // Modals
 const showTransferModal = ref(false);
@@ -170,13 +179,31 @@ function clearSearch() {
 // --- Expand/Collapse ---
 function toggleCollective(id) {
   const s = new Set(expandedCollectives.value);
-  if (s.has(id)) s.delete(id); else s.add(id);
+  if (s.has(id)) {
+    s.delete(id);
+  } else {
+    s.add(id);
+    // Trigger address validation when expanding
+    const cm = allCollectives.value.find(c => c.id === id);
+    if (cm && cm.address) {
+      validateMemberAddress(id, cm.address);
+    }
+  }
   expandedCollectives.value = s;
 }
 
 function toggleRegistered(id) {
   const s = new Set(expandedRegistered.value);
-  if (s.has(id)) s.delete(id); else s.add(id);
+  if (s.has(id)) {
+    s.delete(id);
+  } else {
+    s.add(id);
+    // Trigger address validation when expanding
+    const rm = allRegistered.value.find(r => r.id === id);
+    if (rm && rm.address) {
+      validateMemberAddress(id, rm.address);
+    }
+  }
   expandedRegistered.value = s;
 }
 
@@ -203,6 +230,43 @@ function formatMemberCount(n) {
   if (n === 1) return `${n} evidovaný člen`;
   if (n >= 2 && n <= 4) return `${n} evidovaní členové`;
   return `${n} evidovaných členů`;
+}
+
+// --- Validation helpers ---
+function getCollectiveIssues(cm) {
+  return validateCollectiveMember(cm);
+}
+
+function getRegisteredIssues(rm) {
+  return validateRegisteredMember(rm);
+}
+
+function getAddressValidation(memberId) {
+  return addressValidationResults.value[memberId];
+}
+
+async function validateMemberAddress(memberId, address) {
+  // Skip if already validated or currently pending
+  if (memberId in addressValidationResults.value) return;
+  if (addressValidationPending.value.has(memberId)) return;
+
+  const pending = new Set(addressValidationPending.value);
+  pending.add(memberId);
+  addressValidationPending.value = pending;
+
+  try {
+    const result = await validateAddress(address);
+    addressValidationResults.value = {
+      ...addressValidationResults.value,
+      [memberId]: result
+    };
+  } catch {
+    // Don't mark as invalid on error
+  } finally {
+    const p = new Set(addressValidationPending.value);
+    p.delete(memberId);
+    addressValidationPending.value = p;
+  }
 }
 
 // --- Transfer Modal ---
@@ -480,23 +544,23 @@ function confirmActivateRegistered(member) {
                   <div class="detail-left">
                     <div class="detail-grid">
                       <span class="label">Rodné číslo:</span>
-                      <span>{{ rm.birth_number || '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).birth_number }">{{ rm.birth_number || '—' }}</span>
                       <span class="label">Pohlaví:</span>
-                      <span>{{ rm.sex || '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).sex }">{{ rm.sex || '—' }}</span>
                       <span class="label">Datum narození:</span>
-                      <span>{{ formatDate(rm.date_of_birth) }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).date_of_birth }">{{ formatDate(rm.date_of_birth) }}</span>
                       <span class="label">Národnost:</span>
-                      <span>{{ rm.nationality_code || '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).nationality_code }">{{ rm.nationality_code || '—' }}</span>
                       <span class="label">Adresa:</span>
-                      <span>{{ formatAddress(rm.address) }}</span>
+                      <span :class="{ 'validation-warn': getAddressValidation(rm.id) === false || getRegisteredIssues(rm).address_street || getRegisteredIssues(rm).address_township }">{{ formatAddress(rm.address) }}</span>
                       <span class="label">Vznik členství:</span>
-                      <span>{{ formatDate(rm.membership_origin_date) }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).membership_origin_date }">{{ formatDate(rm.membership_origin_date) }}</span>
                       <span class="label" v-if="!isActive">Zánik členství:</span>
-                      <span v-if="!isActive">{{ formatDate(rm.membership_extinction_date) }}</span>
+                      <span v-if="!isActive" :class="{ 'validation-warn': getRegisteredIssues(rm).membership_extinction_date }">{{ formatDate(rm.membership_extinction_date) }}</span>
                       <span class="label">Platnost lékařské prohlídky:</span>
-                      <span>{{ formatDate(rm.medical_examination_validity) }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).medical_examination_validity }">{{ formatDate(rm.medical_examination_validity) }}</span>
                       <span class="label">Soutěže (posl. 12 měs.):</span>
-                      <span>{{ rm.competitions_last_12_months ?? '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).competitions_last_12_months }">{{ rm.competitions_last_12_months ?? '—' }}</span>
                       <span class="label">Závodník:</span>
                       <span>{{ rm.athlete ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Rozhodčí:</span>
@@ -573,13 +637,13 @@ function confirmActivateRegistered(member) {
                 <h3>Informace o členu</h3>
                 <div class="detail-grid">
                   <span class="label">IČO:</span>
-                  <span>{{ cm.company_id || '—' }}</span>
+                  <span :class="{ 'validation-warn': getCollectiveIssues(cm).company_id }">{{ cm.company_id || '—' }}</span>
                   <span class="label">Adresa:</span>
-                  <span>{{ formatAddress(cm.address) }}</span>
+                  <span :class="{ 'validation-warn': getAddressValidation(cm.id) === false || getCollectiveIssues(cm).address_street || getCollectiveIssues(cm).address_township }">{{ formatAddress(cm.address) }}</span>
                   <span class="label">Vznik členství:</span>
-                  <span>{{ formatDate(cm.membership_origin_date) }}</span>
+                  <span :class="{ 'validation-warn': getCollectiveIssues(cm).membership_origin_date }">{{ formatDate(cm.membership_origin_date) }}</span>
                   <span class="label" v-if="!isActive">Zánik členství:</span>
-                  <span v-if="!isActive">{{ formatDate(cm.membership_extinction_date) }}</span>
+                  <span v-if="!isActive" :class="{ 'validation-warn': getCollectiveIssues(cm).membership_extinction_date }">{{ formatDate(cm.membership_extinction_date) }}</span>
                   <span class="label">Vytvořeno:</span>
                   <span>{{ formatTimestamp(cm.createdAt) }} {{ cm.createdBy || '—' }}</span>
                   <span class="label">Upraveno:</span>
@@ -594,13 +658,13 @@ function confirmActivateRegistered(member) {
                 <h3>Kontaktní osoba</h3>
                 <div class="detail-grid" v-if="cm.contact_person">
                   <span class="label">Jméno:</span>
-                  <span>{{ cm.contact_person.first_name || '—' }} {{ cm.contact_person.last_name || '' }}</span>
+                  <span :class="{ 'validation-warn': getCollectiveIssues(cm).contact_person_first_name || getCollectiveIssues(cm).contact_person_last_name }">{{ cm.contact_person.first_name || '—' }} {{ cm.contact_person.last_name || '' }}</span>
                   <span class="label">Email:</span>
-                  <span>{{ cm.contact_person.email || '—' }}</span>
+                  <span :class="{ 'validation-warn': getCollectiveIssues(cm).contact_person_email }">{{ cm.contact_person.email || '—' }}</span>
                   <span class="label">Telefon:</span>
-                  <span>{{ cm.contact_person.phone_number || '—' }}</span>
+                  <span :class="{ 'validation-warn': getCollectiveIssues(cm).contact_person_phone }">{{ cm.contact_person.phone_number || '—' }}</span>
                 </div>
-                <span v-else class="empty-info">Žádná kontaktní osoba</span>
+                <span v-else class="empty-info validation-warn">Žádná kontaktní osoba</span>
               </div>
             </div>
 
@@ -663,23 +727,23 @@ function confirmActivateRegistered(member) {
                   <div class="detail-left">
                     <div class="detail-grid">
                       <span class="label">Rodné číslo:</span>
-                      <span>{{ rm.birth_number || '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).birth_number }">{{ rm.birth_number || '—' }}</span>
                       <span class="label">Pohlaví:</span>
-                      <span>{{ rm.sex || '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).sex }">{{ rm.sex || '—' }}</span>
                       <span class="label">Datum narození:</span>
-                      <span>{{ formatDate(rm.date_of_birth) }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).date_of_birth }">{{ formatDate(rm.date_of_birth) }}</span>
                       <span class="label">Národnost:</span>
-                      <span>{{ rm.nationality_code || '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).nationality_code }">{{ rm.nationality_code || '—' }}</span>
                       <span class="label">Adresa:</span>
-                      <span>{{ formatAddress(rm.address) }}</span>
+                      <span :class="{ 'validation-warn': getAddressValidation(rm.id) === false || getRegisteredIssues(rm).address_street || getRegisteredIssues(rm).address_township }">{{ formatAddress(rm.address) }}</span>
                       <span class="label">Vznik členství:</span>
-                      <span>{{ formatDate(rm.membership_origin_date) }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).membership_origin_date }">{{ formatDate(rm.membership_origin_date) }}</span>
                       <span class="label" v-if="!isActive || rm.membership_extinction_date != null">Zánik členství:</span>
-                      <span v-if="!isActive || rm.membership_extinction_date != null">{{ formatDate(rm.membership_extinction_date) }}</span>
+                      <span v-if="!isActive || rm.membership_extinction_date != null" :class="{ 'validation-warn': getRegisteredIssues(rm).membership_extinction_date }">{{ formatDate(rm.membership_extinction_date) }}</span>
                       <span class="label">Platnost lékařské prohlídky:</span>
-                      <span>{{ formatDate(rm.medical_examination_validity) }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).medical_examination_validity }">{{ formatDate(rm.medical_examination_validity) }}</span>
                       <span class="label">Soutěže (posl. 12 měs.):</span>
-                      <span>{{ rm.competitions_last_12_months ?? '—' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).competitions_last_12_months }">{{ rm.competitions_last_12_months ?? '—' }}</span>
                       <span class="label">Závodník:</span>
                       <span>{{ rm.athlete ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Rozhodčí:</span>

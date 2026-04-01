@@ -5,6 +5,10 @@ import Papa from 'papaparse';
 import { errorStore } from '@/stores/errorStore';
 import { uploadCollectives, uploadRegistered } from '@/services/importService';
 import { getAllCollectiveMembers } from '@/services/firestoreService';
+import {
+  validateCollectiveImportRow,
+  validateRegisteredImportRow
+} from '@/services/validationService';
 
 const route = useRoute();
 
@@ -113,8 +117,8 @@ function handleFileUpload(event) {
       data.forEach((row, index) => {
         const rowNum = index + 1;
 
-        // Check for missing values (skip 'id')
-        const missing = allowedHeaders.filter(h => h !== 'id' && (!row[h] || row[h].trim() === ''));
+        // Check for missing values (skip 'id' and 'membership_extinction_date')
+        const missing = allowedHeaders.filter(h => h !== 'id' && h !== 'membership_extinction_date' && (!row[h] || row[h].trim() === ''));
         if (missing.length > 0) {
           addLog(`Řádek ${rowNum}: chybějící hodnoty — ${missing.join(', ')}`, 'warning');
         }
@@ -123,6 +127,12 @@ function handleFileUpload(event) {
         if (row.id && row.id.trim() !== '') {
           addLog(`Řádek ${rowNum}: člen s ID "${row.id}" bude aktualizován.`, 'info');
         }
+
+        // Soft validation warnings
+        const validationWarnings = isCollective.value
+          ? validateCollectiveImportRow(row, rowNum)
+          : validateRegisteredImportRow(row, rowNum);
+        validationWarnings.forEach(w => addLog(w, 'warning'));
       });
 
       parsedData.value = data;

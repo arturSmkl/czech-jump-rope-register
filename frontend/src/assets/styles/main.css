@@ -343,3 +343,22 @@ button {
   opacity: 1;
 }
 
+/* Validation warning highlight */
+.validation-warn {
+  background-color: var(--warning-light);
+  border-radius: 3px;
+  padding: 0 0.25rem;
+}
+
+.validation-warn-input {
+  border-color: var(--warning) !important;
+  background-color: var(--warning-bg) !important;
+}
+
+.validation-hint {
+  font-size: 0.8rem;
+  color: var(--warning);
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+

@@ -8,6 +8,13 @@ import {
   updateCollectiveMember
 } from '@/services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
+import {
+  validateEmail,
+  validateCzechPhone,
+  validateDateDropdowns,
+  validateCompanyId
+} from '@/services/validationService';
+import { validateAddress } from '@/services/addressValidationService';
 
 const route = useRoute();
 const router = useRouter();
@@ -150,6 +157,38 @@ function clearExtinctionDate() {
   extinctionMonth.value = null;
   extinctionYear.value = null;
 }
+
+// --- Validation ---
+const companyIdWarning = computed(() => validateCompanyId(company_id.value) === false);
+const emailWarning = computed(() => validateEmail(cp_email.value) === false);
+const phoneWarning = computed(() => validateCzechPhone(cp_phone_number.value) === false);
+const originDateWarning = computed(() => validateDateDropdowns(originDay.value, originMonth.value, originYear.value) === false);
+const extinctionDateWarning = computed(() => validateDateDropdowns(extinctionDay.value, extinctionMonth.value, extinctionYear.value) === false);
+
+const addressValidationResult = ref(null); // true, false, or null
+const addressValidating = ref(false);
+
+async function checkAddress() {
+  const addr = {
+    street: street.value || null,
+    house_number: house_number.value || null,
+    zip_code: zip_code.value || null,
+    township: township.value || null,
+    country: country.value || null
+  };
+  if (!addr.street && !addr.township) {
+    addressValidationResult.value = null;
+    return;
+  }
+  addressValidating.value = true;
+  try {
+    addressValidationResult.value = await validateAddress(addr);
+  } catch {
+    addressValidationResult.value = null;
+  } finally {
+    addressValidating.value = false;
+  }
+}
 </script>
 
 <template>
@@ -169,7 +208,8 @@ function clearExtinctionDate() {
           </div>
           <div class="form-group">
             <label class="form-label">IČO</label>
-            <input class="form-input" v-model="company_id" placeholder="IČO" />
+            <input class="form-input" :class="{ 'validation-warn-input': companyIdWarning }" v-model="company_id" placeholder="IČO" />
+            <span v-if="companyIdWarning" class="validation-hint">IČO musí být číslo</span>
           </div>
         </div>
       </div>
@@ -198,6 +238,13 @@ function clearExtinctionDate() {
             <label class="form-label">Země</label>
             <input class="form-input" v-model="country" placeholder="Země" />
           </div>
+          <div class="form-group full-width">
+            <button class="btn-white btn-sm" @click="checkAddress" :disabled="addressValidating">
+              {{ addressValidating ? 'Ověřování…' : 'Ověřit adresu (RÚIAN)' }}
+            </button>
+            <span v-if="addressValidationResult === true" class="address-valid">✓ Adresa nalezena v RÚIAN</span>
+            <span v-else-if="addressValidationResult === false" class="validation-hint">⚠ Adresa nenalezena v RÚIAN</span>
+          </div>
         </div>
       </div>
 
@@ -215,11 +262,13 @@ function clearExtinctionDate() {
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input class="form-input" v-model="cp_email" placeholder="Email" />
+            <input class="form-input" :class="{ 'validation-warn-input': emailWarning }" v-model="cp_email" placeholder="Email" />
+            <span v-if="emailWarning" class="validation-hint">Neplatný formát emailu</span>
           </div>
           <div class="form-group">
             <label class="form-label">Telefon</label>
-            <input class="form-input" v-model="cp_phone_number" placeholder="Telefon" />
+            <input class="form-input" :class="{ 'validation-warn-input': phoneWarning }" v-model="cp_phone_number" placeholder="Telefon" />
+            <span v-if="phoneWarning" class="validation-hint">Neplatné české telefonní číslo</span>
           </div>
         </div>
       </div>
@@ -249,6 +298,7 @@ function clearExtinctionDate() {
               class="btn-clear-date"
               @click="clearOriginDate"
             >Vymazat datum</button>
+            <span v-if="originDateWarning" class="validation-hint">Neplatné datum</span>
           </div>
           <div v-if="!isEditingActiveMember" class="form-group">
             <label class="form-label">Zánik členství</label>
@@ -271,6 +321,7 @@ function clearExtinctionDate() {
               class="btn-clear-date"
               @click="clearExtinctionDate"
             >Vymazat datum</button>
+            <span v-if="extinctionDateWarning" class="validation-hint">Neplatné datum</span>
           </div>
         </div>
       </div>
@@ -306,5 +357,12 @@ function clearExtinctionDate() {
 
 .btn-clear-date:hover {
   text-decoration: underline;
+}
+
+.address-valid {
+  font-size: 0.8rem;
+  color: var(--green);
+  font-weight: 600;
+  margin-top: 0.15rem;
 }
 </style>

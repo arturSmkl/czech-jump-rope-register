@@ -9,6 +9,12 @@ import {
   getAllCollectiveMembers
 } from '@/services/firestoreService';
 import { Timestamp } from 'firebase/firestore';
+import {
+  validateBirthNumber,
+  validateBirthDateDropdowns,
+  validateDateDropdowns
+} from '@/services/validationService';
+import { validateAddress } from '@/services/addressValidationService';
 
 const route = useRoute();
 const router = useRouter();
@@ -249,6 +255,38 @@ function hasDateValue(prefix) {
     default: return false;
   }
 }
+
+// --- Validation ---
+const birthNumberWarning = computed(() => validateBirthNumber(birth_number.value) === false);
+const dobWarning = computed(() => validateBirthDateDropdowns(dobDay.value, dobMonth.value, dobYear.value) === false);
+const originDateWarning = computed(() => validateDateDropdowns(originDay.value, originMonth.value, originYear.value) === false);
+const extinctionDateWarning = computed(() => validateDateDropdowns(extinctionDay.value, extinctionMonth.value, extinctionYear.value) === false);
+const medicalDateWarning = computed(() => validateDateDropdowns(medicalDay.value, medicalMonth.value, medicalYear.value) === false);
+
+const addressValidationResult = ref(null);
+const addressValidating = ref(false);
+
+async function checkAddress() {
+  const addr = {
+    street: addr_street.value || null,
+    house_number: addr_house_number.value || null,
+    zip_code: addr_zip_code.value || null,
+    township: addr_township.value || null,
+    country: addr_country.value || null
+  };
+  if (!addr.street && !addr.township) {
+    addressValidationResult.value = null;
+    return;
+  }
+  addressValidating.value = true;
+  try {
+    addressValidationResult.value = await validateAddress(addr);
+  } catch {
+    addressValidationResult.value = null;
+  } finally {
+    addressValidating.value = false;
+  }
+}
 </script>
 
 <template>
@@ -272,7 +310,8 @@ function hasDateValue(prefix) {
           </div>
           <div class="form-group">
             <label class="form-label">Rodné číslo</label>
-            <input class="form-input" v-model="birth_number" placeholder="Rodné číslo" />
+            <input class="form-input" :class="{ 'validation-warn-input': birthNumberWarning }" v-model="birth_number" placeholder="Rodné číslo" />
+            <span v-if="birthNumberWarning" class="validation-hint">Neplatné rodné číslo</span>
           </div>
           <div class="form-group">
             <label class="form-label">Pohlaví</label>
@@ -299,6 +338,7 @@ function hasDateValue(prefix) {
               </select>
             </div>
             <button v-if="hasDateValue('dob')" class="btn-clear-date" @click="clearDate('dob')">Vymazat datum</button>
+            <span v-if="dobWarning" class="validation-hint">Neplatné datum narození</span>
           </div>
           <div class="form-group">
             <label class="form-label">Kód národnosti</label>
@@ -331,6 +371,13 @@ function hasDateValue(prefix) {
             <label class="form-label">Země</label>
             <input class="form-input" v-model="addr_country" placeholder="Země" />
           </div>
+          <div class="form-group full-width">
+            <button class="btn-white btn-sm" @click="checkAddress" :disabled="addressValidating">
+              {{ addressValidating ? 'Ověřování…' : 'Ověřit adresu (RÚIAN)' }}
+            </button>
+            <span v-if="addressValidationResult === true" class="address-valid">✓ Adresa nalezena v RÚIAN</span>
+            <span v-else-if="addressValidationResult === false" class="validation-hint">⚠ Adresa nenalezena v RÚIAN</span>
+          </div>
         </div>
       </div>
 
@@ -355,6 +402,7 @@ function hasDateValue(prefix) {
               </select>
             </div>
             <button v-if="hasDateValue('origin')" class="btn-clear-date" @click="clearDate('origin')">Vymazat datum</button>
+            <span v-if="originDateWarning" class="validation-hint">Neplatné datum</span>
           </div>
           <div class="form-group">
             <label class="form-label">Zánik členství</label>
@@ -373,6 +421,7 @@ function hasDateValue(prefix) {
               </select>
             </div>
             <button v-if="hasDateValue('extinction')" class="btn-clear-date" @click="clearDate('extinction')">Vymazat datum</button>
+            <span v-if="extinctionDateWarning" class="validation-hint">Neplatné datum</span>
           </div>
         </div>
       </div>
@@ -398,6 +447,7 @@ function hasDateValue(prefix) {
               </select>
             </div>
             <button v-if="hasDateValue('medical')" class="btn-clear-date" @click="clearDate('medical')">Vymazat datum</button>
+            <span v-if="medicalDateWarning" class="validation-hint">Neplatné datum</span>
           </div>
           <div class="form-group">
             <label class="form-label">Soutěže (posl. 12 měs.)</label>
@@ -511,6 +561,13 @@ function hasDateValue(prefix) {
 
 .btn-clear-date:hover {
   text-decoration: underline;
+}
+
+.address-valid {
+  font-size: 0.8rem;
+  color: var(--green);
+  font-weight: 600;
+  margin-top: 0.15rem;
 }
 
 .checkbox-group {

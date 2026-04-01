@@ -1,0 +1,6 @@
+name;company_id;street;house_number;zip_code;township;country;contact_person_first_name;contact_person_last_name;contact_person_email;contact_person_phone_number;membership_origin_date;membership_extinction_date;id
+name1;CID-1001;street1;1;10001;township1;Germany;FirstName1;LastName1;contact1@example.com;+420123456789;01-01-2024;;
+name1;CID-1001;street1;1;10001;township1;Germany;FirstName1;LastName1;@example.com;+490000001;1-1-2024;;
+name1;CID-1001;street1;1;10001;township1;Germany;FirstName1;LastName1;a@examplecom;000001;12-13-2024;;
+name1;CID-1001;street1;1;10001;township1;Germany;FirstName1;LastName1;aexample.com;123456789;2024-01-01;;
+name1;CID-1001;street1;1;10001;township1;Germany;FirstName1;LastName1;fs.§)gd;dgfhsbúůpú);2024-1-1;;
