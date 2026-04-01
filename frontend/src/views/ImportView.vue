@@ -136,7 +136,6 @@ function handleFileUpload(event) {
       });
 
       parsedData.value = data;
-      console.log(parsedData.value);
       addLog(`CSV úspěšně načteno — ${data.length} řádků.`, 'success');
     },
     error(err) {
