@@ -16,6 +16,7 @@ const {
   transferRegisteredMembers
 } = require("./src/routes/registered.js");
 const { generateOverviewPDF } = require("./src/routes/reports.js");
+const { validateAddress } = require("./src/routes/address.js");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -123,4 +124,9 @@ app.get("/reports/overview",
   async (req, res) => generateOverviewPDF(req, res, db)
 );
 
-exports.api = onRequest({ region: "europe-west3" }, app)
+app.get("/validate-address",
+  validateRole(["admin", "editor", "viewer"]),
+  (req, res) => validateAddress(req, res)
+);
+
+exports.api = onRequest({ region: "europe-west3", secrets: ["RUIAN_API_KEY"] }, app)

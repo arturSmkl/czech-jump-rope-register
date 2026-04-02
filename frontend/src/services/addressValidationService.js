@@ -1,12 +1,12 @@
 /**
- * Address validation service using the RUIAN API.
+ * Address validation service using the RUIAN API (proxied through the backend).
  * Caches results to avoid exceeding the rate limit (1000 req/hour).
  */
 
+import { getAuth } from 'firebase/auth';
 import { errorStore } from '@/stores/errorStore';
 
-const RUIAN_API_KEY = import.meta.env.VITE_RUIAN_API_KEY;
-const RUIAN_BASE_URL = 'https://ruian.fnx.io/api/v1/ruian/validate';
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Cache: key = serialized address -> { valid: boolean, timestamp: number }
 const addressCache = new Map();
@@ -36,7 +36,7 @@ function hasValidatableAddress(address) {
 }
 
 /**
- * Validate an address against the RUIAN API.
+ * Validate an address against the RUIAN API (via backend proxy).
  * Returns: true (valid), false (invalid), null (cannot validate / no data).
  * Results are cached to avoid exceeding the rate limit.
  *
@@ -60,21 +60,21 @@ export async function validateAddress(address) {
     return addressCache.get(key).valid;
   }
 
-  if (!RUIAN_API_KEY) {
-    console.warn('RUIAN API key not configured');
-    return null;
-  }
-
   try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return null;
+    const token = await user.getIdToken();
+
     const params = new URLSearchParams();
-    params.append('apiKey', RUIAN_API_KEY);
-    if (address.township) params.append('municipalityName', address.township);
-    if (address.zip_code) params.append('zip', address.zip_code);
-    if (address.house_number) params.append('cp', address.house_number);
+    if (address.township) params.append('township', address.township);
+    if (address.zip_code) params.append('zip_code', address.zip_code);
+    if (address.house_number) params.append('house_number', address.house_number);
     if (address.street) params.append('street', address.street);
 
-    const response = await fetch(`${RUIAN_BASE_URL}?${params.toString()}`, {
-      method: 'GET'
+    const response = await fetch(`${API_URL}/validate-address?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
     });
 
     if (!response.ok) {
@@ -87,12 +87,8 @@ export async function validateAddress(address) {
     }
 
     const data = await response.json();
-
-    // status: "MATCH" = exact match, "POSSIBLE" = close match, "NOT_FOUND" / "ERROR" = invalid
-    const isValid = data && (data.status === 'MATCH' || data.status === 'POSSIBLE');
-
-    addressCache.set(key, { valid: isValid, timestamp: Date.now() });
-    return isValid;
+    addressCache.set(key, { valid: data.valid, timestamp: Date.now() });
+    return data.valid;
   } catch (err) {
     errorStore.setError('RÚIAN API: ověření adresy selhalo — ' + err.message);
     return null;
