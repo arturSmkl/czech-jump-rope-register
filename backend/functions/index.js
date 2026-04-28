@@ -21,6 +21,7 @@ const { validateAddress } = require("./src/routes/address.js");
 admin.initializeApp();
 const db = admin.firestore();
 const app = express();
+const router = express.Router();
 
 const ALLOWED_ORIGINS = [
   "https://czech-jump-rope-register-e8dea.web.app",
@@ -52,44 +53,44 @@ app.use(express.json())
  * data: [{}, {}, ...]
  * }
  */
-app.post("/collectives/import", 
-  validateRole(["admin", "editor"]), 
+router.post("/collectives/import",
+  validateRole(["admin", "editor"]),
   (req, res) => importCollectives(req, res, db)
 );
 
-app.get("/collectives/export",
+router.get("/collectives/export",
   validateRole(["admin", "editor"]),
   async (req, res) => exportCollectives(req, res, db)
 );
 
 /**
- * Body: { 
+ * Body: {
  * collectiveId: "ID_OF_CLUB"
  * action: "nullify" | "nullify_and_terminate" | "transfer"
  * targetCollectiveId: "ID_OF_TARGET_CLUB" (required if action is "transfer")
  * }
  */
-app.post("/registered/transfer",
+router.post("/registered/transfer",
   validateRole(['admin', 'editor']),
   (req, res) => transferRegisteredMembers(req, res, db)
 );
 
 /**
- * Body: { 
+ * Body: {
  * collectiveId: "ID_OF_CLUB"
  * }
  */
-app.post("/collectives/terminate",
+router.post("/collectives/terminate",
   validateRole(['admin', 'editor']),
   (req, res) => terminateCollective(req, res, db)
 );
 
 /**
- * Body: { 
+ * Body: {
  * collectiveId: "ID_OF_CLUB"
  * }
  */
-app.delete("/collectives/delete",
+router.delete("/collectives/delete",
   validateRole(['admin', 'editor']),
   (req, res) => deleteCollective(req, res, db)
 );
@@ -97,36 +98,41 @@ app.delete("/collectives/delete",
 
 
 /**
- * Body: { 
+ * Body: {
  * data: [{}, {}, ...]
  * collective_member_ref: "ID_OF_ASSOCIATED_CLUB" (optional)
  * }
  */
-app.post("/registered/import",
+router.post("/registered/import",
   validateRole(["admin", "editor"]),
   (req, res) => importRegistered(req, res, db)
 );
 
-app.get("/registered/export/:collectiveId",
+router.get("/registered/export/:collectiveId",
   validateRole(["admin", "editor"]),
   async (req, res) => exportRegistered(req, res, db)
 );
 
-app.get("/registered/export-nsa",
+router.get("/registered/export-nsa",
   validateRole(["admin", "editor"]),
   async (req, res) => exportRegisteredNsa(req, res, db)
 );
 
 
 
-app.get("/reports/overview",
+router.get("/reports/overview",
   validateRole(["admin", "editor"]),
   async (req, res) => generateOverviewPDF(req, res, db)
 );
 
-app.get("/validate-address",
+router.get("/validate-address",
   validateRole(["admin", "editor", "viewer"]),
   (req, res) => validateAddress(req, res)
 );
+
+// Mount at '/' for the emulator (strips function name from path)
+// Mount at '/api' for production via Firebase Hosting rewrite (forwards full path)
+app.use('/', router);
+app.use('/api', router);
 
 exports.api = onRequest({ region: "europe-west3", secrets: ["RUIAN_API_KEY"] }, app)
