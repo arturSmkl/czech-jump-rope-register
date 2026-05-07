@@ -26,6 +26,10 @@ const router = express.Router();
 const ALLOWED_ORIGINS = [
   "https://czech-jump-rope-register-e8dea.web.app",
   "https://czech-jump-rope-register-e8dea.firebaseapp.com",
+  "https://czech-jump-rope-register-s-s.web.app",
+  "https://czech-jump-rope-register-s-s.firebaseapp.com",
+  "https://czech-jump-rope-register-s-c.web.app",
+  "https://czech-jump-rope-register-s-c.firebaseapp.com",
   "http://localhost:5000",
   "http://localhost:5173",
   "http://127.0.0.1:5000",

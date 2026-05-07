@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "czech-jump-rope-register-e8dea"
+    "default": "czech-jump-rope-register-e8dea",
+    "production": "czech-jump-rope-register-e8dea",
+    "staging": "czech-jump-rope-register-s-s",
+    "client": "czech-jump-rope-register-s-c"
   }
 }

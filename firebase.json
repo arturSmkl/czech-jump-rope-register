@@ -19,7 +19,6 @@
     }
   ],
   "hosting": {
-    "site": "czech-jump-rope-register-e8dea",
     "public": "frontend/dist",
     "ignore": [
       "firebase.json",

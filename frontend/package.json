@@ -9,6 +9,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:production": "vite build --mode production",
+    "build:staging": "vite build --mode staging",
+    "build:client": "vite build --mode client",
+    "deploy:production": "npm run build:production && firebase deploy --project production",
+    "deploy:staging": "npm run build:staging && firebase deploy --project staging",
+    "deploy:client": "npm run build:client && firebase deploy --project client",
     "preview": "vite preview"
   },
   "dependencies": {
