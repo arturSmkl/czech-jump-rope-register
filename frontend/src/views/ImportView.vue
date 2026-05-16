@@ -9,6 +9,7 @@ import {
   validateCollectiveImportRow,
   validateRegisteredImportRow
 } from '@/services/validationService';
+import { sortCollectivesByName, isCollectiveTerminated } from '@/utils/collectiveHelpers';
 
 const route = useRoute();
 
@@ -50,6 +51,10 @@ const collectiveMembers = ref([]);
 const selectedCollective = ref(null);
 const showCollectiveDropdown = ref(false);
 
+// Termination warning modal
+const showTerminationWarning = ref(false);
+const pendingCollective = ref(null);
+
 const isSaved = ref(false);
 const canSave = computed(() => parsedData.value && !hasError.value && !isSaving.value && !isSaved.value);
 
@@ -66,6 +71,8 @@ function resetState() {
   isSaved.value = false;
   selectedCollective.value = null;
   showCollectiveDropdown.value = false;
+  showTerminationWarning.value = false;
+  pendingCollective.value = null;
   if (fileInputRef.value) fileInputRef.value.value = '';
 }
 
@@ -168,7 +175,7 @@ async function saveToDatabase() {
 async function openCollectivePicker() {
   if (collectiveMembers.value.length === 0) {
     try {
-      collectiveMembers.value = await getAllCollectiveMembers();
+      collectiveMembers.value = sortCollectivesByName(await getAllCollectiveMembers());
     } catch (err) {
       errorStore.setError('Nepodařilo se načíst kolektivní členy.');
       return;
@@ -178,8 +185,25 @@ async function openCollectivePicker() {
 }
 
 function selectCollective(member) {
+  if (isCollectiveTerminated(member)) {
+    pendingCollective.value = member;
+    showTerminationWarning.value = true;
+    showCollectiveDropdown.value = false;
+    return;
+  }
   selectedCollective.value = member;
   showCollectiveDropdown.value = false;
+}
+
+function confirmTerminationAssignment() {
+  selectedCollective.value = pendingCollective.value;
+  showTerminationWarning.value = false;
+  pendingCollective.value = null;
+}
+
+function cancelTerminationAssignment() {
+  showTerminationWarning.value = false;
+  pendingCollective.value = null;
 }
 
 function clearCollective() {
@@ -231,6 +255,7 @@ function clearCollective() {
         <div class="picker-input" @click="openCollectivePicker">
           <span v-if="selectedCollective" class="picker-value">
             {{ selectedCollective.name }}
+            <span v-if="isCollectiveTerminated(selectedCollective)" class="picker-option-note"> (zaniklý)</span>
           </span>
           <span v-else class="picker-placeholder">Vyberte kolektivního člena…</span>
         </div>
@@ -248,6 +273,7 @@ function clearCollective() {
             @click="selectCollective(member)"
           >
             {{ member.name }}
+            <span v-if="isCollectiveTerminated(member)" class="picker-option-note"> (zaniklý)</span>
           </div>
           <div v-if="collectiveMembers.length === 0" class="picker-option picker-empty">
             Žádní kolektivní členové
@@ -285,6 +311,22 @@ function clearCollective() {
         :class="`log-${log.type}`"
       >
         {{ log.message }}
+      </div>
+    </div>
+
+    <!-- Termination warning modal -->
+    <div v-if="showTerminationWarning" class="modal-overlay" @click.self="cancelTerminationAssignment">
+      <div class="modal-card">
+        <h2>Upozornění</h2>
+        <p>
+          Vybraný kolektivní člen <strong>{{ pendingCollective?.name }}</strong> je zaniklý.
+          Přiřazením importovaných evidovaných členů k zaniklému kolektivnímu členovi budou
+          tito členové také terminováni (datum zániku členství bude nastaveno na dnešní datum).
+        </p>
+        <div class="modal-actions">
+          <button class="btn-white" @click="cancelTerminationAssignment">Zrušit</button>
+          <button class="btn-red" @click="confirmTerminationAssignment">Potvrdit a terminovat</button>
+        </div>
       </div>
     </div>
   </div>
@@ -446,6 +488,11 @@ function clearCollective() {
 .picker-empty {
   color: var(--white-65);
   cursor: default;
+}
+
+.picker-option-note {
+  color: var(--white-65);
+  font-size: 0.9rem;
 }
 
 /* Log window */

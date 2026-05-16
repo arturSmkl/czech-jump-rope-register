@@ -12,9 +12,13 @@ import { Timestamp } from 'firebase/firestore';
 import {
   validateBirthNumber,
   validateBirthDateDropdowns,
-  validateDateDropdowns
+  validateDateDropdowns,
+  getAgeFromDropdowns,
+  MIN_REFEREE_AGE,
+  MIN_COACH_AGE
 } from '@/services/validationService';
 import { validateAddress } from '@/services/addressValidationService';
+import { sortCollectivesByName, isCollectiveTerminated } from '@/utils/collectiveHelpers';
 
 const route = useRoute();
 const router = useRouter();
@@ -91,13 +95,13 @@ const hasExtinctionDate = computed(() =>
 // Disable save if assigned to a terminated collective but extinction date is missing/incomplete
 const saveDisabled = computed(() => {
   if (saving.value) return true;
-  if (selectedCollective.value && selectedCollective.value.membership_extinction_date != null && !hasExtinctionDate.value) return true;
+  if (isCollectiveTerminated(selectedCollective.value) && !hasExtinctionDate.value) return true;
   return false;
 });
 
 onMounted(async () => {
   try {
-    collectiveMembers.value = await getAllCollectiveMembers();
+    collectiveMembers.value = sortCollectivesByName(await getAllCollectiveMembers());
   } catch (err) {
     errorStore.setError('Nepodařilo se načíst kolektivní členy: ' + err.message);
   }
@@ -153,7 +157,7 @@ onMounted(async () => {
 });
 
 function selectCollective(cm) {
-  if (cm && cm.membership_extinction_date != null && !hasExtinctionDate.value) {
+  if (isCollectiveTerminated(cm) && !hasExtinctionDate.value) {
     // Warn user: assigning to terminated collective will terminate this member
     pendingCollective.value = cm;
     showTerminationWarning.value = true;
@@ -262,6 +266,10 @@ const dobWarning = computed(() => validateBirthDateDropdowns(dobDay.value, dobMo
 const originDateWarning = computed(() => validateDateDropdowns(originDay.value, originMonth.value, originYear.value) === false);
 const extinctionDateWarning = computed(() => validateDateDropdowns(extinctionDay.value, extinctionMonth.value, extinctionYear.value) === false);
 const medicalDateWarning = computed(() => validateDateDropdowns(medicalDay.value, medicalMonth.value, medicalYear.value) === false);
+
+const dobAge = computed(() => getAgeFromDropdowns(dobDay.value, dobMonth.value, dobYear.value));
+const refereeAgeWarning = computed(() => referee_val.value && dobAge.value != null && dobAge.value < MIN_REFEREE_AGE);
+const coachAgeWarning = computed(() => coach.value && dobAge.value != null && dobAge.value < MIN_COACH_AGE);
 
 const addressValidationResult = ref(null);
 const addressValidating = ref(false);
@@ -466,14 +474,16 @@ async function checkAddress() {
                 <input type="checkbox" v-model="athlete" />
                 <span>Závodník</span>
               </label>
-              <label class="form-check">
+              <label class="form-check" :class="{ 'check-warn': refereeAgeWarning }">
                 <input type="checkbox" v-model="referee_val" />
                 <span>Rozhodčí</span>
               </label>
-              <label class="form-check">
+              <span v-if="refereeAgeWarning" class="validation-hint">Rozhodčí musí mít alespoň {{ MIN_REFEREE_AGE }} let</span>
+              <label class="form-check" :class="{ 'check-warn': coachAgeWarning }">
                 <input type="checkbox" v-model="coach" />
                 <span>Trenér</span>
               </label>
+              <span v-if="coachAgeWarning" class="validation-hint">Trenér musí mít alespoň {{ MIN_COACH_AGE }} let</span>
             </div>
           </div>
         </div>
@@ -488,7 +498,7 @@ async function checkAddress() {
             <div class="picker-input" @click="showCollectivePicker = !showCollectivePicker">
               <span v-if="selectedCollective" class="picker-value">
                 {{ selectedCollective.name }}
-                <span v-if="selectedCollective.membership_extinction_date != null" class="picker-option-note"> (zaniklý)</span>
+                <span v-if="isCollectiveTerminated(selectedCollective)" class="picker-option-note"> (zaniklý)</span>
               </span>
               <span v-else class="picker-placeholder">Žádný — individuální člen</span>
             </div>
@@ -503,7 +513,7 @@ async function checkAddress() {
                 @click="selectCollective(cm)"
               >
                 {{ cm.name }}
-                <span v-if="cm.membership_extinction_date != null" class="picker-option-note"> (zaniklý)</span>
+                <span v-if="isCollectiveTerminated(cm)" class="picker-option-note"> (zaniklý)</span>
               </div>
             </div>
           </div>
@@ -513,7 +523,7 @@ async function checkAddress() {
 
       <!-- Actions -->
       <div class="form-actions">
-        <p v-if="selectedCollective && selectedCollective.membership_extinction_date != null && !hasExtinctionDate" class="form-warning">
+        <p v-if="isCollectiveTerminated(selectedCollective) && !hasExtinctionDate" class="form-warning">
           Evidovaný člen přiřazený k zaniklému kolektivnímu členovi musí mít vyplněné datum zániku členství.
         </p>
         <button class="btn-white" @click="cancel">Zrušit</button>
@@ -574,6 +584,13 @@ async function checkAddress() {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.form-check.check-warn {
+  background-color: var(--warning-bg);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  align-self: flex-start;
 }
 
 /* Picker styles (same as MembersView) */

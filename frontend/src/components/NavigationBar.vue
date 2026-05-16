@@ -84,15 +84,15 @@ async function handleExport(fn) {
           </router-link>
         </div>
       </div>
-      <div v-if="canSeeAll" class="link-dropdown">
+      <div class="link-dropdown">
         <div class="link flex-center link-export">
           <div class="link-text">EXPORT</div>
         </div>
         <div class="dropdown-menu">
-          <div class="dropdown-item" @click="handleExport(downloadCollectiveExport)">
+          <div v-if="canSeeAll" class="dropdown-item" @click="handleExport(downloadCollectiveExport)">
             Exportovat kolektivní členy
           </div>
-          <div class="dropdown-item" @click="handleExport(downloadRegisteredExportNsa)">
+          <div v-if="canSeeAll" class="dropdown-item" @click="handleExport(downloadRegisteredExportNsa)">
             Exportovat pro rejstřík NSA
           </div>
           <div class="dropdown-item" @click="handleExport(downloadOverviewPdf)">

@@ -125,7 +125,7 @@ router.get("/registered/export-nsa",
 
 
 router.get("/reports/overview",
-  validateRole(["admin", "editor"]),
+  validateRole(["admin", "editor", "viewer"]),
   async (req, res) => generateOverviewPDF(req, res, db)
 );
 

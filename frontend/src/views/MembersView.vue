@@ -22,6 +22,7 @@ import {
   validateRegisteredMember
 } from '@/services/validationService';
 import { validateAddress } from '@/services/addressValidationService';
+import { sortCollectivesByName, isCollectiveTerminated } from '@/utils/collectiveHelpers';
 
 const route = useRoute();
 const router = useRouter();
@@ -83,7 +84,7 @@ const filteredCollectives = computed(() => {
     list = list.filter(cm => ids.has(cm.id));
   }
 
-  return list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'cs'));
+  return sortCollectivesByName(list);
 });
 
 const individualMembers = computed(() => {
@@ -283,9 +284,7 @@ function selectTransferTarget(cm) {
   showTransferPicker.value = false;
 }
 
-const transferTargetIsTerminated = computed(() => {
-  return transferTargetCollective.value && transferTargetCollective.value.membership_extinction_date != null;
-});
+const transferTargetIsTerminated = computed(() => isCollectiveTerminated(transferTargetCollective.value));
 
 async function confirmTransfer() {
   if (!transferTarget.value) return;
@@ -443,7 +442,7 @@ function confirmActivateRegistered(member) {
   const parentCollective = member.collective_member_ref
     ? allCollectives.value.find(cm => cm.id === member.collective_member_ref)
     : null;
-  const isParentTerminated = parentCollective && parentCollective.membership_extinction_date != null;
+  const isParentTerminated = isCollectiveTerminated(parentCollective);
 
   if (isParentTerminated) {
     confirmMessage.value =
@@ -564,9 +563,9 @@ function confirmActivateRegistered(member) {
                       <span class="label">Závodník:</span>
                       <span>{{ rm.athlete ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Rozhodčí:</span>
-                      <span>{{ rm.referee ? 'Ano' : 'Ne' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).referee }">{{ rm.referee ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Trenér:</span>
-                      <span>{{ rm.coach ? 'Ano' : 'Ne' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).coach }">{{ rm.coach ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Vytvořeno:</span>
                       <span>{{ formatTimestamp(rm.createdAt) }} — {{ rm.createdBy || '—' }}</span>
                       <span class="label">Upraveno:</span>
@@ -747,9 +746,9 @@ function confirmActivateRegistered(member) {
                       <span class="label">Závodník:</span>
                       <span>{{ rm.athlete ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Rozhodčí:</span>
-                      <span>{{ rm.referee ? 'Ano' : 'Ne' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).referee }">{{ rm.referee ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Trenér:</span>
-                      <span>{{ rm.coach ? 'Ano' : 'Ne' }}</span>
+                      <span :class="{ 'validation-warn': getRegisteredIssues(rm).coach }">{{ rm.coach ? 'Ano' : 'Ne' }}</span>
                       <span class="label">Vytvořeno:</span>
                       <span>{{ formatTimestamp(rm.createdAt) }} — {{ rm.createdBy || '—' }}</span>
                       <span class="label">Upraveno:</span>
@@ -844,7 +843,7 @@ function confirmActivateRegistered(member) {
                 @click="selectTransferTarget(tc)"
               >
                 {{ tc.name }}
-                <span v-if="tc.membership_extinction_date != null" class="picker-option-note"> (zaniklý)</span>
+                <span v-if="isCollectiveTerminated(tc)" class="picker-option-note"> (zaniklý)</span>
               </div>
             </div>
           </div>

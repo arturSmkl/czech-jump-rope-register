@@ -28,53 +28,51 @@ export function validateBirthNumber(value) {
 }
 
 /**
+ * Parse a supported date value (Firestore Timestamp, Date, DD-MM-YYYY string, or
+ * {seconds} object) into a Date. Returns null for empty input, undefined when the
+ * value is present but not a real calendar date.
+ */
+function coerceToDate(value) {
+  if (value == null) return null;
+
+  if (typeof value === 'object' && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const match = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return undefined;
+    const [, dd, mm, yyyy] = match;
+    const day = parseInt(dd, 10);
+    const month = parseInt(mm, 10);
+    const year = parseInt(yyyy, 10);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      return undefined;
+    }
+    return date;
+  }
+  if (typeof value === 'object' && value.seconds != null) {
+    return new Date(value.seconds * 1000);
+  }
+  return undefined;
+}
+
+/**
  * Validate a date value. Accepts Firestore Timestamps, Date objects, or DD-MM-YYYY strings.
  * Checks that the date is a real calendar date.
  * Returns true if valid, false if invalid, null if empty.
  */
 export function validateDate(value) {
-  if (value == null) return null;
-
-  let date;
-
-  // Firestore Timestamp
-  if (value && typeof value === 'object' && typeof value.toDate === 'function') {
-    date = value.toDate();
-  }
-  // Already a Date
-  else if (value instanceof Date) {
-    date = value;
-  }
-  // String format DD-MM-YYYY
-  else if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === '') return null;
-    const match = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-    if (!match) return false;
-    const [, dd, mm, yyyy] = match;
-    const day = parseInt(dd, 10);
-    const month = parseInt(mm, 10);
-    const year = parseInt(yyyy, 10);
-    date = new Date(year, month - 1, day);
-    // Verify the date components match (handles invalid dates like 31-02-2020)
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-      return false;
-    }
-  }
-  // Object with seconds (Firestore-like)
-  else if (value && typeof value === 'object' && value.seconds != null) {
-    date = new Date(value.seconds * 1000);
-  }
-  else {
-    return false;
-  }
-
-  if (isNaN(date.getTime())) return false;
-
-  // Check reasonable year range
+  const date = coerceToDate(value);
+  if (date === null) return null;
+  if (date === undefined || isNaN(date.getTime())) return false;
   const year = date.getFullYear();
   if (year < 1900 || year > 2100) return false;
-
   return true;
 }
 
@@ -141,19 +139,8 @@ export function validateSex(value) {
  */
 export function validateBirthDate(value) {
   const dateValid = validateDate(value);
-  if (dateValid === null || dateValid === false) return dateValid;
-
-  let date;
-  if (value && typeof value === 'object' && typeof value.toDate === 'function') {
-    date = value.toDate();
-  } else if (value instanceof Date) {
-    date = value;
-  } else if (value && typeof value === 'object' && value.seconds != null) {
-    date = new Date(value.seconds * 1000);
-  } else {
-    return dateValid;
-  }
-
+  if (dateValid !== true) return dateValid;
+  const date = coerceToDate(value);
   // Birth date must be in the past
   if (date > new Date()) return false;
   return true;
@@ -168,6 +155,37 @@ export function validateBirthDateDropdowns(day, month, year) {
   const date = new Date(year, month - 1, day);
   if (date > new Date()) return false;
   return true;
+}
+
+// Minimum-age requirements for registered-member roles.
+export const MIN_REFEREE_AGE = 15;
+export const MIN_COACH_AGE = 18;
+
+function ageInYears(date) {
+  const now = new Date();
+  let age = now.getFullYear() - date.getFullYear();
+  const monthDiff = now.getMonth() - date.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < date.getDate())) age--;
+  return age;
+}
+
+/**
+ * Age in completed years from any supported birth-date value, or null if it can't be computed.
+ */
+export function getAgeFromBirthDate(value) {
+  const date = coerceToDate(value);
+  if (!date || isNaN(date.getTime())) return null;
+  return ageInYears(date);
+}
+
+/**
+ * Age in completed years from dropdown components, or null if incomplete/invalid.
+ */
+export function getAgeFromDropdowns(day, month, year) {
+  if (day == null || month == null || year == null) return null;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return ageInYears(date);
 }
 
 /**
@@ -283,6 +301,21 @@ export function validateRegisteredImportRow(row, rowNum) {
     }
   }
 
+  // Role/age rules — only check if birth date itself parses to a valid past date.
+  if (row.date_of_birth && validateDate(row.date_of_birth) === true) {
+    const age = getAgeFromBirthDate(row.date_of_birth);
+    if (age != null) {
+      const refereeYes = row.referee && row.referee.trim().toLowerCase() === 'ano';
+      const coachYes = row.coach && row.coach.trim().toLowerCase() === 'ano';
+      if (refereeYes && age < MIN_REFEREE_AGE) {
+        warnings.push(`Řádek ${rowNum}: rozhodčí musí mít alespoň ${MIN_REFEREE_AGE} let (věk: ${age})`);
+      }
+      if (coachYes && age < MIN_COACH_AGE) {
+        warnings.push(`Řádek ${rowNum}: trenér musí mít alespoň ${MIN_COACH_AGE} let (věk: ${age})`);
+      }
+    }
+  }
+
   return warnings;
 }
 
@@ -376,6 +409,15 @@ export function validateRegisteredMember(rm) {
   // Competitions count
   if (rm.competitions_last_12_months == null || rm.competitions_last_12_months === '') {
     issues.competitions_last_12_months = 'missing';
+  }
+
+  // Role/age rules — only flag when birth date is itself valid.
+  if (rm.date_of_birth && validateBirthDate(rm.date_of_birth) === true) {
+    const age = getAgeFromBirthDate(rm.date_of_birth);
+    if (age != null) {
+      if (rm.referee && age < MIN_REFEREE_AGE) issues.referee = 'invalid';
+      if (rm.coach && age < MIN_COACH_AGE) issues.coach = 'invalid';
+    }
   }
 
   return issues;
